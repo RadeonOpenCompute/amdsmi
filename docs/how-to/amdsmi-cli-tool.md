@@ -1,10 +1,37 @@
-# Using AMD SMI Command Line Interface tool
+---
+myst:
+  html_meta:
+    "description lang=en": "Learn how to use the AMD SMI command line tool."
+    "keywords": "api, smi, lib, system, management, interface, example"
+---
 
-**Disclaimer: CLI Tool is provided as an example code to aid the development of telemetry tools. Python or C++ Library is recommended as a reliable data source.**  
+# AMD SMI CLI tool usage
 
-AMD-SMI reports the version and current platform detected when running the command line interface (CLI) without arguments:
+This tool is a command line interface (CLI) for manipulating and monitoring the
+`amdgpu` kernel; it is intended to replace and deprecate the existing `rocm_smi`
+CLI tool and `gpuv-smi` tool. The AMD SMI CLI tool uses Ctypes to call the
+`amd_smi_lib` API.
 
-``` bash
+When using the CLI tool, you should have at least one AMD GPU and the driver
+installed.
+
+```{admonition} Disclaimer
+The AMD SMI CLI tool is provided as an example code to aid the development of
+telemetry tools. The [Python](./amdsmi-py-lib) or [C++
+library](./amdsmi-cpp-lib) is recommended as a robust data source.
+```
+
+## Install the CLI Tool and Python library
+
+Refer to the [installation instructions](../install/install.md).
+
+## Get started
+
+The amd-smi command provides system management and monitoring capabilities for
+AMD hardware. When run without arguments, it reports the version and platform
+detected:
+
+```shell-session
 ~$ amd-smi
 usage: amd-smi [-h]  ...
 
@@ -26,19 +53,38 @@ AMD-SMI Commands:
     topology          Displays topology information of the devices
     set               Set options for devices
     reset             Reset options for devices
-    monitor           Monitor metrics for target devices
+    monitor (dmon)    Monitor metrics for target devices
     xgmi              Displays xgmi information of the devices
 ```
 
-More detailed verison information is available from `amd-smi version`
+Example commands:
 
-Each command will have detailed information via `amd-smi [command] --help`
+```shell-session
+amd-smi static --gpu 0
+amd-smi metric
+amd-smi process --gpu 0 1
+amd-smi reset --gpureset --gpu all
+```
 
+```{note}
+For command-specific help, use `amd-smi [command] --help` for see more detailed
+usage information. See [Commands](#cmds).
+
+For more detailed version information, use `amd-smi version`.
+```
+
+(cmds)=
 ## Commands
 
-For convenience, here is the help output for each command
+The following are the help output for each command, providing quick reference
+details for usage.
 
-```bash
+(cmd-list)=
+### amd-smi list
+
+Lists GPU information.
+
+```shell-session
 ~$ amd-smi list --help
 usage: amd-smi list [-h] [--json | --csv] [--file FILE] [--loglevel LEVEL]
                     [-g GPU [GPU ...] | -U CPU [CPU ...] | -O CORE [CORE ...]]
@@ -75,7 +121,13 @@ Command Modifiers:
                                 DEBUG, INFO, WARNING, ERROR, CRITICAL
 ```
 
-```bash
+(cmd-static)=
+### amd-smi static
+
+Gets static information about the specified GPU. See the [sample
+output](#cli-ex-static) for `amd-smi static`.
+
+```shell-session
 ~$ amd-smi static --help
 usage: amd-smi static [-h] [-g GPU [GPU ...] | -U CPU [CPU ...]] [-a] [-b] [-V] [-d] [-v]
                       [-c] [-B] [-R] [-r] [-p] [-l] [-P] [-x] [-u] [-s] [-i]
@@ -125,7 +177,12 @@ Command Modifiers:
                                 DEBUG, INFO, WARNING, ERROR, CRITICAL
 ```
 
-```bash
+(cmd-firmware)=
+### amd-smi firmware
+
+Gets firmware information about the specified GPU.
+
+```shell-session
 ~$ amd-smi firmware --help
 usage: amd-smi firmware [-h] [--json | --csv] [--file FILE] [--loglevel LEVEL]
                         [-g GPU [GPU ...] | -U CPU [CPU ...] | -O CORE [CORE ...]] [-f]
@@ -159,7 +216,12 @@ Command Modifiers:
                                 DEBUG, INFO, WARNING, ERROR, CRITICAL
 ```
 
-```bash
+(cmd-bad-pages)=
+### amd-smi bad-pages
+
+Gets bad page information about the specified GPU.
+
+```shell-session
 ~$ amd-smi bad-pages --help
 usage: amd-smi bad-pages [-h] [--json | --csv] [--file FILE] [--loglevel LEVEL]
                          [-g GPU [GPU ...] | -U CPU [CPU ...] | -O CORE [CORE ...]] [-p]
@@ -196,7 +258,12 @@ Command Modifiers:
                                 DEBUG, INFO, WARNING, ERROR, CRITICAL
 ```
 
-```bash
+(cmd-metric)=
+### amd-smi metric
+
+Gets metrics and performance information about the specified GPU.
+
+```shell-session
 ~$ amd-smi metric --help
 usage: amd-smi metric [-h] [-g GPU [GPU ...] | -U CPU [CPU ...] | -O CORE [CORE ...]]
                       [-w INTERVAL] [-W TIME] [-i ITERATIONS] [-m] [-u] [-p] [-c] [-t]
@@ -286,7 +353,12 @@ Command Modifiers:
                                                 DEBUG, INFO, WARNING, ERROR, CRITICAL
 ```
 
-```bash
+(cmd-process)=
+### amd-smi process
+
+Lists general process information running on the specified GPU.
+
+```shell-session
 ~$ amd-smi process --help
 usage: amd-smi process [-h] [--json | --csv] [--file FILE] [--loglevel LEVEL]
                        [-g GPU [GPU ...] | -U CPU [CPU ...] | -O CORE [CORE ...]]
@@ -330,7 +402,12 @@ Command Modifiers:
                                 DEBUG, INFO, WARNING, ERROR, CRITICAL
 ```
 
-```bash
+(cmd-event)=
+### amd-smi event
+
+Displays event information for the given GPU.
+
+```shell-session
 ~$ amd-smi event --help
 usage: amd-smi event [-h] [--json | --csv] [--file FILE] [--loglevel LEVEL]
                      [-g GPU [GPU ...] | -U CPU [CPU ...] | -O CORE [CORE ...]]
@@ -363,7 +440,12 @@ Command Modifiers:
                                 DEBUG, INFO, WARNING, ERROR, CRITICAL
 ```
 
-```bash
+(cmd-topology)=
+### amd-smi topology
+
+Displays topology information of the specified devices.
+
+```shell-session
 ~$ amd-smi topology --help
 usage: amd-smi topology [-h] [--json | --csv] [--file FILE] [--loglevel LEVEL]
                         [-g GPU [GPU ...] | -U CPU [CPU ...] | -O CORE [CORE ...]] [-a]
@@ -403,7 +485,12 @@ Command Modifiers:
                                 DEBUG, INFO, WARNING, ERROR, CRITICAL
 ```
 
-```bash
+(cmd-set)=
+### amd-smi set
+
+Set options for specified devices.
+
+```shell-session
 ~$ amd-smi set --help
 usage: amd-smi set [-h] (-g GPU [GPU ...] | -U CPU [CPU ...] | -O CORE [CORE ...]) [-f %]
                    [-l LEVEL] [-P SETPROFILE] [-d SCLKMAX] [-C PARTITION] [-M PARTITION]
@@ -473,7 +560,12 @@ Command Modifiers:
                                                 DEBUG, INFO, WARNING, ERROR, CRITICAL
 ```
 
-```bash
+(cmd-reset)=
+### amd-smi reset
+
+Reset options for specified devices.
+
+```shell-session
 ~$ amd-smi reset --help
 usage: amd-smi reset [-h] [--json | --csv] [--file FILE] [--loglevel LEVEL]
                      (-g GPU [GPU ...] | -U CPU [CPU ...] | -O CORE [CORE ...]) [-G] [-c]
@@ -518,7 +610,12 @@ Command Modifiers:
                                 DEBUG, INFO, WARNING, ERROR, CRITICAL
 ```
 
-```bash
+(cmd-monitor)=
+### amd-smi monitor
+
+Monitor metrics for target devices.
+
+```shell-session
 ~$ amd-smi monitor --help
 usage: amd-smi monitor [-h] [--json | --csv] [--file FILE] [--loglevel LEVEL]
                        [-g GPU [GPU ...] | -U CPU [CPU ...] | -O CORE [CORE ...]]
@@ -568,7 +665,12 @@ Command Modifiers:
                                 DEBUG, INFO, WARNING, ERROR, CRITICAL
 ```
 
-```bash
+(cmd-xgmi)=
+### amd-smi xgmi
+
+Displays XGMI information of specified devices.
+
+```shell-session
 ~$ amd-smi xgmi --help
 usage: amd-smi xgmi [-h] [--json | --csv] [--file FILE] [--loglevel LEVEL]
                     [-g GPU [GPU ...] | -U CPU [CPU ...] | -O CORE [CORE ...]] [-m]
@@ -603,9 +705,11 @@ Command Modifiers:
                                 DEBUG, INFO, WARNING, ERROR, CRITICAL
 ```
 
+(cli-ex-static)=
 ### Example output from amd-smi static
 
-Here is some example output from the tool:
+To gain a sense of the AMD SMI CLI's output, the following block is sample
+output from the CLI tool:
 
 ```bash
 ~$ amd-smi static
