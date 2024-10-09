@@ -1014,7 +1014,7 @@ class AMDSMIParser(argparse.ArgumentParser):
         set_power_cap_help = "Set power capacity limit"
         set_soc_pstate_help = "Set the GPU soc pstate policy using policy id\n"
         set_xgmi_plpd_help = "Set the GPU XGMI per-link power down policy using policy id\n"
-        set_process_isolation_help = "Enable or disable the GPU process isolation: 0 for disable and 1 for enable.\n"
+        set_process_isolation_help = "Enable or disable the GPU process isolation on a per partition basis: 0 for disable and 1 for enable.\n"
 
         # Help text for CPU set options
         set_cpu_pwr_limit_help = "Set power limit for the given socket. Input parameter is power limit value."
@@ -1104,7 +1104,7 @@ class AMDSMIParser(argparse.ArgumentParser):
         reset_compute_help = "Reset compute partitions on the specified GPU"
         reset_memory_help = "Reset memory partitions on the specified GPU"
         reset_power_cap_help = "Reset power capacity limit to max capable"
-        reset_gpu_clean_local_data_help = "Clean up local data in LDS/GPRs"
+        reset_gpu_clean_local_data_help = "Clean up local data in LDS/GPRs on a per partition basis"
 
         # Create reset subparser
         reset_parser = subparsers.add_parser('reset', help=reset_help, description=reset_subcommand_help)
