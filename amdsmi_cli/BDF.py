@@ -123,7 +123,7 @@ class BDF():
         """Overrided the 'in' comparator in python"""
         passed_bdf = str(BDF(passed_bdf))
 
-        bdf_regex = "(?:[0-6]?[0-9a-fA-F]{1,4}:)?[0-2]?[0-9a-fA-F]{1,2}:[0-9a-fA-F]{1,2}\\.[0-7]"
+        bdf_regex = r"(?:[0-6]?[0-9a-fA-F]{1,4}:)?[0-2]?[0-9a-fA-F]{1,2}:[0-9a-fA-F]{1,2}\.[0-7]"
         for match in re.findall(bdf_regex, passed_bdf):
             if self == match:
                 return True
