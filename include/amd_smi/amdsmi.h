@@ -710,7 +710,8 @@ typedef struct {
     amdsmi_vram_vendor_type_t vram_vendor;
     uint64_t vram_size;
     uint32_t vram_bit_width;
-    uint64_t reserved[5];
+    uint64_t vram_max_bandwidth;   //!< The VRAM max bandwidth at current memory clock (GB/s)
+  uint64_t reserved[4];
 } amdsmi_vram_info_t;
 
 typedef struct {
@@ -1325,13 +1326,22 @@ typedef struct {
  * @brief The following structures hold the gpu statistics for a device.
  */
 typedef struct {
-    /* Utilization Instantaneous (%) */
+    /*
+  * v1.6 additions
+  */
+  /* Utilization Instantaneous (%) */
     uint32_t gfx_busy_inst[AMDSMI_MAX_NUM_XCC];
     uint16_t jpeg_busy[AMDSMI_MAX_NUM_JPEG];
     uint16_t vcn_busy[AMDSMI_MAX_NUM_VCN];
 
     /* Utilization Accumulated (%) */
     uint64_t gfx_busy_acc[AMDSMI_MAX_NUM_XCC];
+
+  /*
+  * v1.7 additions
+  */
+  /* Total App Clock Counter Accumulated */
+  uint64_t gfx_below_host_limit_acc[AMDSMI_MAX_NUM_XCC];
 } amdsmi_gpu_xcp_metrics_t;
 
 typedef struct {
@@ -1533,8 +1543,29 @@ typedef struct {
     /* PCIE other end recovery counter */
     uint32_t pcie_lc_perf_other_end_recovery;
 
+  /*
+  * v1.7 additions
+  */
+  /* VRAM max bandwidth at max memory clock (GB/s) */
+  uint64_t vram_max_bandwidth;
+
+  /* XGMI link status(up/down) */
+  uint16_t xgmi_link_status[AMDSMI_MAX_NUM_XGMI_LINKS];
+
     /// \endcond
 } amdsmi_gpu_metrics_t;
+
+typedef enum {
+  AMDSMI_XGMI_LINK_DOWN,            //!< The XGMI Link is down
+  AMDSMI_XGMI_LINK_UP,              //!< The XGMI Link is up
+  AMDSMI_XGMI_LINK_DISABLE,         //!< The XGMI Link is disabled
+} amdsmi_xgmi_link_status_type_t;
+
+typedef struct {
+  uint32_t total_links;   //!< The total links in the status array
+  amdsmi_xgmi_link_status_type_t status[AMDSMI_MAX_NUM_XGMI_LINKS];
+  uint64_t reserved[7];
+} amdsmi_xgmi_link_status_t;
 
 #define  MAX_AMDSMI_NAME_LENGTH 64
 
@@ -4828,6 +4859,25 @@ amdsmi_status_t amdsmi_get_pcie_info(amdsmi_processor_handle processor_handle, a
 amdsmi_status_t
 amdsmi_get_xgmi_info(amdsmi_processor_handle processor_handle, amdsmi_xgmi_info_t *info);
 
+/**
+ *  @brief Get the XGMI link status
+ *
+ *  @platform{gpu_bm_linux} @platform{host}
+ *
+ *  @details Given a processor handle @p processor_handle,  this function
+ *  will return the link status for each XGMI link connect to this processor.
+ *  If the processor link type is not XGMI, it should return AMDSMI_STATUS_NOT_SUPPORTED.
+ *
+ *  @param[in] processor_handle a processor handle
+ *
+ *  @param[out] link_status The link status of the XGMI connect to this processor.
+ *
+ *  @return ::amdsmi_status_t | ::AMDSMI_STATUS_SUCCESS on success, non-zero on fail
+ */
+amdsmi_status_t
+amdsmi_get_gpu_xgmi_link_status(amdsmi_processor_handle processor_handle,
+              amdsmi_xgmi_link_status_t* link_status);
+
 /** @} End asicinfo */
 
 /*****************************************************************************/
@@ -5756,6 +5806,7 @@ amdsmi_status_t amdsmi_get_cpu_model(uint32_t *cpu_model);
  *  @return ::amdsmi_status_t | ::AMDSMI_STATUS_SUCCESS on success, non-zero on fail
  */
 amdsmi_status_t amdsmi_get_esmi_err_msg(amdsmi_status_t status, const char **status_string);
+
 #endif
 
 /** @} auxiquer */
