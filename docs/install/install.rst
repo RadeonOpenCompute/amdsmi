@@ -106,7 +106,7 @@ Python library install example for Ubuntu 22.04
             
         python3 -m pip install --upgrade pip
             
-        python3 -m pip install --user 
+        python3 -m pip install --user .
 
   
 Now you have the AMD SMI Python library in your Python path:
