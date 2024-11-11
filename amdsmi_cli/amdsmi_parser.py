@@ -187,11 +187,19 @@ class AMDSMIParser(argparse.ArgumentParser):
                 valid_clk_types = ('sclk', 'mclk')
                 valid_lim_types = ('min', 'max')
                 clk_type, lim_type, val = values
+
+                # Check if the sclk and mclk parameters are valid
                 if clk_type not in valid_clk_types:
-                    raise amdsmi_cli_exceptions.AmdSmiInvalidParameterValueException(clk_type, output_format)
+                    raise amdsmi_cli_exceptions.AmdSmiInvalidParameterException(clk_type, output_format)
                 if lim_type not in valid_lim_types:
-                    raise amdsmi_cli_exceptions.AmdSmiInvalidParameterValueException(lim_type, output_format)
+                    raise amdsmi_cli_exceptions.AmdSmiInvalidParameterException(lim_type, output_format)
+
+                # Check if the val is a valid integer value
+                if not val.isdigit():
+                    raise amdsmi_cli_exceptions.AmdSmiInvalidParameterValueException(val, output_format)
                 val = int(val)
+                if val < 0:
+                    raise amdsmi_cli_exceptions.AmdSmiInvalidParameterValueException(val, output_format)
                 clk_limit_args = collections.namedtuple('clk_limit_args', ['clk_type', 'lim_type', 'val'])
                 setattr(namespace, self.dest, clk_limit_args(clk_type, lim_type, val))
         return AMDSMILimitArgs
