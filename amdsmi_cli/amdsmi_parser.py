@@ -567,8 +567,8 @@ class AMDSMIParser(argparse.ArgumentParser):
 
         # Subparser help text
         list_help = "List GPU information"
-        list_subcommand_help = "Lists all detected devices on the system\
-                            \nLists the BDF, UUID, KFD_ID, and NODE_ID for each GPU and/or CPUs\
+        list_subcommand_help = "Lists all detected devices on the system.\
+                            \nLists the BDF, UUID, KFD_ID, and NODE_ID for each GPU and/or CPUs.\
                             \nIn virtualization environments, it can also list VFs associated to each\
                             \nGPU with some basic information for each VF."
 
@@ -735,7 +735,7 @@ class AMDSMIParser(argparse.ArgumentParser):
         # Subparser help text
         metric_help = "Gets metric/performance information about the specified GPU"
         metric_subcommand_help = "If no GPU is specified, returns metric information for all GPUs on the system.\
-                                \nIf no metric argument is provided all metric information will be displayed."
+                                \nIf no metric argument is provided, all metric information will be displayed."
         metric_optionals_title = "Metric arguments"
 
         # Optional arguments help text
@@ -896,7 +896,7 @@ class AMDSMIParser(argparse.ArgumentParser):
         # Subparser help text
         process_help = "Lists general process information running on the specified GPU"
         process_subcommand_help = "If no GPU is specified, returns information for all GPUs on the system.\
-                                \nIf no process argument is provided all process information will be displayed."
+                                \nIf no process argument is provided, all process information will be displayed."
         process_optionals_title = "Process arguments"
 
         # Optional Arguments help text
@@ -904,7 +904,7 @@ class AMDSMIParser(argparse.ArgumentParser):
         engine_help = "All engine usages"
         pid_help = "Gets all process information about the specified process based on Process ID"
         name_help = "Gets all process information about the specified process based on Process Name.\
-                    \nIf multiple processes have the same name information is returned for all of them."
+                    \nIf multiple processes have the same name, information is returned for all of them."
 
 
         # Create process subparser
@@ -981,7 +981,7 @@ class AMDSMIParser(argparse.ArgumentParser):
         # Subparser help text
         topology_help = "Displays topology information of the devices"
         topology_subcommand_help = "If no GPU is specified, returns information for all GPUs on the system.\
-                                \nIf no topology argument is provided all topology information will be displayed."
+                                \nIf no topology argument is provided, all topology information will be displayed."
         topology_optionals_title = "Topology arguments"
 
         # Help text for Arguments only on Guest and BM platforms
@@ -1170,7 +1170,7 @@ class AMDSMIParser(argparse.ArgumentParser):
         monitor_help = "Monitor metrics for target devices"
         monitor_subcommand_help = "Monitor a target device for the specified arguments.\
                                   \nIf no arguments are provided, all arguments will be enabled.\
-                                  \nUse the watch arguments to run continuously"
+                                  \nUse the watch arguments to run continuously."
         monitor_optionals_title = "Monitor Arguments"
 
         # Help text for Arguments only on Guest and BM platforms
@@ -1264,7 +1264,7 @@ class AMDSMIParser(argparse.ArgumentParser):
         # Subparser help text
         xgmi_help = "Displays xgmi information of the devices"
         xgmi_subcommand_help = "If no GPU is specified, returns information for all GPUs on the system.\
-                                \nIf no xgmi argument is provided all xgmi information will be displayed."
+                                \nIf no xgmi argument is provided, all xgmi information will be displayed."
         xgmi_optionals_title = "XGMI arguments"
 
         # Help text for Arguments only on Guest and BM platforms
@@ -1292,7 +1292,7 @@ class AMDSMIParser(argparse.ArgumentParser):
         # Subparser help text
         partition_help = "Displays partition information of the devices"
         partition_subcommand_help = "If no GPU is specified, returns information for all GPUs on the system.\
-                                \nIf no partition argument is provided all partition information will be displayed."
+                                \nIf no partition argument is provided, all partition information will be displayed."
         partition_optionals_title = "partition arguments"
 
         # Options help text
