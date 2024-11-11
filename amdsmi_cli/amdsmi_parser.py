@@ -1032,7 +1032,7 @@ class AMDSMIParser(argparse.ArgumentParser):
         set_fan_help = "Set GPU fan speed (0-255 or 0-100%%)"
         set_perf_level_help = "Set performance level"
         set_profile_help = "Set power profile level (#) or a quoted string of custom profile attributes"
-        set_perf_det_help = "Set GPU clock frequency limit and performance level to determinism to get minimal performance variation"
+        set_perf_det_help = "Set GPU clock frequency limit and performance level to determinism\n to get minimal performance variation"
         compute_partition_choices_str = ", ".join(self.helpers.get_compute_partition_types())
         memory_partition_choices_str = ", ".join(self.helpers.get_memory_partition_types())
         set_compute_partition_help = f"Set one of the following the compute partition modes:\n\t{compute_partition_choices_str}"
@@ -1040,8 +1040,8 @@ class AMDSMIParser(argparse.ArgumentParser):
         set_power_cap_help = "Set power capacity limit"
         set_soc_pstate_help = "Set the GPU soc pstate policy using policy id\n"
         set_xgmi_plpd_help = "Set the GPU XGMI per-link power down policy using policy id\n"
-        set_clk_limit_help = "Sets the sclk (aka gfxclk) or mclk minimum and maximum frequencies. \nOf form: amd-smi set -L (sclk | mclk) (min | max) value"
-        set_process_isolation_help = "Enable or disable the GPU process isolation on a per partition basis: 0 for disable and 1 for enable.\n"
+        set_clk_limit_help = "Sets the sclk (aka gfxclk) or mclk minimum and maximum frequencies:\n\tamd-smi set -L (sclk | mclk) (min | max) value"
+        set_process_isolation_help = "Enable or disable the GPU process isolation on a per partition basis:\n\t0 for disable and 1 for enable.\n"
 
         # Help text for CPU set options
         set_cpu_pwr_limit_help = "Set power limit for the given socket. Input parameter is power limit value."
