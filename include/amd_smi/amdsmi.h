@@ -180,7 +180,7 @@ typedef enum {
 #define AMDSMI_LIB_VERSION_MAJOR 7
 
 //! Minor version should be updated for each API change, but without changing headers
-#define AMDSMI_LIB_VERSION_MINOR 0
+#define AMDSMI_LIB_VERSION_MINOR 1
 
 //! Release version should be set to 0 as default and can be updated by the PMs for each CSP point release
 #define AMDSMI_LIB_VERSION_RELEASE 0
@@ -691,11 +691,11 @@ typedef union {
 typedef struct {
   amdsmi_accelerator_partition_type_t  profile_type;   // SPX, DPX, QPX, CPX and so on
   uint32_t num_partitions;  // On MI300X, SPX: 1, DPX: 2, QPX: 4, CPX: 8, length of resources array
-  uint32_t profile_index;
   amdsmi_nps_caps_t memory_caps;             // Possible memory partition capabilities
+  uint32_t profile_index;
   uint32_t num_resources;                    // length of index_of_resources_profile
   uint32_t resources[AMDSMI_MAX_ACCELERATOR_PARTITIONS][AMDSMI_MAX_CP_PROFILE_RESOURCES];
-  uint64_t reserved[6];
+  uint64_t reserved[13];
 } amdsmi_accelerator_partition_profile_t;
 
 typedef enum {
@@ -2573,14 +2573,12 @@ amdsmi_status_t amdsmi_set_gpu_pci_bandwidth(amdsmi_processor_handle processor_h
  *  @platform{gpu_bm_linux}
  *
  *  @details Given a processor handle @p processor_handle, a pointer to a uint64_t
- *  @p power, and a pointer to a uint64_t @p timestamp, this function will write
- *  amount of energy consumed to the uint64_t pointed to by @p power,
- *  and the timestamp to the uint64_t pointed to by @p timestamp.
+ *  @p energy_accumulator, and a pointer to a uint64_t @p timestamp, this function
+ *  will write amount of energy consumed to the uint64_t pointed to by
+ *  @p energy_accumulator, and the timestamp to the uint64_t pointed to by @p timestamp.
  *  This function accumulates all energy consumed.
  *
  *  @param[in] processor_handle a processor handle
- *  @param[in,out] counter_resolution resolution of the counter @p power in
- *  micro Joules
  *
  *  @param[in,out] energy_accumulator a pointer to uint64_t to which the energy
  *  counter will be written
@@ -2588,6 +2586,9 @@ amdsmi_status_t amdsmi_set_gpu_pci_bandwidth(amdsmi_processor_handle processor_h
  *  ::AMDSMI_STATUS_INVAL if the function is supported with the provided,
  *  and ::AMDSMI_STATUS_NOT_SUPPORTED if it is not supported with the
  *  provided arguments.
+ *
+ *  @param[in,out] counter_resolution resolution of the counter @p energy_accumulator in
+ *  micro Joules
  *
  *  @param[in,out] timestamp a pointer to uint64_t to which the timestamp
  *  will be written. Resolution: 1 ns.
@@ -5099,12 +5100,16 @@ amdsmi_get_gpu_vram_usage(amdsmi_processor_handle processor_handle, amdsmi_vram_
 /**
  *  @brief          Returns the violations for a processor
  *
- *  @platform{gpu_bm_linux} @platform{host} @platform{guest_1vf} @platform{guest_mvf}
+ *  Warning: API will be slow due to polling driver for 2 samples. Require
+ *  a minimum wait of 100ms between the 2 samples in order to calculate. Otherwise
+ *  users would need to use amdsmi_get_gpu_metrics_info for BM. See that API's struct
+ *  for calculations.
+ *
+ *  @platform{gpu_bm_linux} @platform{host}
  *
  *  @param[in]      processor_handle Device which to query
  *
- *
- *  @param[in,out]  info Reference to all violation status details available.
+ *  @param[out]     info Reference to all violation status details available.
  *                  Must be allocated by user.
  *
  *  @return ::amdsmi_status_t | ::AMDSMI_STATUS_SUCCESS on success, non-zero on fail
