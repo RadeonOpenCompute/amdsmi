@@ -444,6 +444,7 @@ Field | Description
 `vram_type` |  vram type
 `vram_vendor` |  vram vendor
 `vram_size` |  vram size in mb
+`vram_bit_width` | vram bit width
 
 Exceptions that can be thrown by `amdsmi_get_gpu_vram_info` function:
 
@@ -464,6 +465,7 @@ try:
             print(vram_info['vram_type'])
             print(vram_info['vram_vendor'])
             print(vram_info['vram_size'])
+            print(vram_info['vram_bit_width'])
 except AmdSmiException as e:
     print(e)
 ```
@@ -2411,7 +2413,7 @@ try:
         print("No GPUs on machine")
     else:
         for device in devices:
-            print(amdsmi_get_gpu_reg_table_info(device, AmdSmiRegType.USR1))
+            print(amdsmi_get_gpu_reg_table_info(device, AmdSmiRegType.PCIE))
 except AmdSmiException as e:
     print(e)
 ```
@@ -3623,6 +3625,45 @@ try:
         link_type = amdsmi_topo_get_link_type(processor_handle_src, processor_handle_dest)
         print(link_type['hops'])
         print(link_type['type'])
+except AmdSmiException as e:
+    print(e)
+```
+
+### amdsmi_get_P2P_status
+
+Description: Retrieve the connection type and P2P capabilities between 2 GPUs
+
+Input parameters:
+
+* `processor_handle_src` the source device handle
+* `processor_handle_dest` the destination device handle
+
+Output:  Dictionary with fields:
+
+Fields | Description
+---|---
+`type` | AmdSmiIoLinkType
+`cap` | <table><thead><tr> <th> Subfield </th> <th> Description</th> </tr></thead><tbody><tr><td>`is_iolink_coherent`</td><td>1 == True; 0 == False; Uint_max = Undefined</td></tr><tr><td>`is_iolink_atomics_32bit`</td><td>Supports 32bit atomics</td></tr><tr><td>`is_iolink_atomics_64bit`</td><td>Supports 64bit atomics</td></tr><tr><td>`is_iolink_dma`</td><td>Supports DMA</td></tr><tr><td>`is_iolink_bi_directional`</td><td>Is the IOLink Bidirectional</td></tr></tbody></table>
+
+Exceptions that can be thrown by `amdsmi_get_P2P_status` function:
+
+* `AmdSmiLibraryException`
+* `AmdSmiRetryException`
+* `AmdSmiParameterException`
+
+Example:
+
+```python
+try:
+    devices = amdsmi_get_processor_handles()
+    if len(devices) == 0:
+        print("No GPUs on machine")
+    else:
+        processor_handle_src = devices[0]
+        processor_handle_dest = devices[1]
+        link_type = amdsmi_get_P2P_status(processor_handle_src, processor_handle_dest)
+        print(link_type['type'])
+        print(link_type['caps'])
 except AmdSmiException as e:
     print(e)
 ```

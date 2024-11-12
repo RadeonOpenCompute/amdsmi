@@ -1753,8 +1753,8 @@ def amdsmi_get_gpu_pm_metrics_info(
             processor_handle, amdsmi_wrapper.amdsmi_processor_handle
         )
 
-    pm_metrics = ctypes.POINTER(struct_amdsmi_name_value_t);
-    num_mets = ctypes.c_uint32;
+    pm_metrics = ctypes.POINTER(amdsmi_wrapper.amdsmi_name_value_t)
+    num_mets = ctypes.c_uint32
 
     _check_res(
         amdsmi_wrapper.amdsmi_get_gpu_pm_metrics_info(
@@ -1782,8 +1782,8 @@ def amdsmi_get_gpu_reg_table_info(
             processor_handle, amdsmi_wrapper.amdsmi_processor_handle
         )
 
-    reg_metrics = ctypes.POINTER(struct_amdsmi_name_value_t);
-    num_regs = ctypes.c_uint32;
+    reg_metrics = ctypes.POINTER(amdsmi_wrapper.amdsmi_name_value_t)
+    num_regs = ctypes.c_uint32
 
     _check_res(
         amdsmi_wrapper.amdsmi_get_gpu_reg_table_info(
@@ -1798,7 +1798,7 @@ def amdsmi_get_gpu_reg_table_info(
             'value': reg_metrics[i].value
         }
         results.append(item)
-    amdsmi_wrapper.amdsmi_free_name_value_pairs(pm_metrics)
+    amdsmi_wrapper.amdsmi_free_name_value_pairs(reg_metrics)
     return results
 
 
