@@ -2344,6 +2344,78 @@ except AmdSmiException as e:
     print(e)
 ```
 
+### amdsmi_get_gpu_pm_metrics_info
+
+Description: This function will retreive the name and value for each
+item in the pm metrics table with the given processor handle.
+
+Input parameters:
+
+* `processor_handle` handle for the given device
+
+Output: List containing dictionaries of pm metrics and their values
+
+Field | Description
+---|---
+`name` | name of PM metric
+`value` | value of pm metric
+
+Exceptions that can be thrown by `amdsmi_get_gpu_pm_metrics_info` function:
+
+* `AmdSmiLibraryException`
+* `AmdSmiRetryException`
+* `AmdSmiParameterException`
+
+Example:
+
+```python
+try:
+    devices = amdsmi_get_processor_handles()
+    if len(devices) == 0:
+        print("No GPUs on machine")
+    else:
+        for device in devices:
+            print(amdsmi_get_gpu_pm_metrics_info(device))
+except AmdSmiException as e:
+    print(e)
+```
+
+### amdsmi_get_gpu_reg_table_info
+
+Description: This function will retrieve register metrics table with provided device index and register type.
+
+Input parameters:
+
+* `processor_handle` handle for the given device
+* `reg_type` register type
+
+Output: List containing dictionaries of register metrics and their values
+
+Field | Description
+---|---
+`name` | name of register metric
+`value` | value of register metric
+
+Exceptions that can be thrown by `amdsmi_get_gpu_reg_table_info` function:
+
+* `AmdSmiLibraryException`
+* `AmdSmiRetryException`
+* `AmdSmiParameterException`
+
+Example:
+
+```python
+try:
+    devices = amdsmi_get_processor_handles()
+    if len(devices) == 0:
+        print("No GPUs on machine")
+    else:
+        for device in devices:
+            print(amdsmi_get_gpu_reg_table_info(device, AmdSmiRegType.USR1))
+except AmdSmiException as e:
+    print(e)
+```
+
 ### amdsmi_get_gpu_od_volt_curve_regions
 
 Description: This function will retrieve the current valid regions in the

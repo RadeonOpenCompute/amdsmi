@@ -412,6 +412,14 @@ class AmdSmiProcessorType(IntEnum):
     AMDSMI_PROCESSOR_TYPE_NON_AMD_CPU = amdsmi_wrapper.AMDSMI_PROCESSOR_TYPE_NON_AMD_CPU
 
 
+class AmdSmiRegType(IntEnum):
+    XGMI = amdsmi_wrapper.AMDSMI_REG_XGMI
+    WAFL = amdsmi_wrapper.AMDSMI_REG_WAFL
+    PCIE = amdsmi_wrapper.AMDSMI_REG_PCIE
+    USR = amdsmi_wrapper.AMDSMI_REG_USR
+    USR1 = amdsmi_wrapper.AMDSMI_REG_USR1
+
+
 class AmdSmiEventReader:
     def __init__(
         self, processor_handle: amdsmi_wrapper.amdsmi_processor_handle,
@@ -1767,7 +1775,7 @@ def amdsmi_get_gpu_pm_metrics_info(
 
 def amdsmi_get_gpu_reg_table_info(
     processor_handle: amdsmi_wrapper.amdsmi_processor_handle,
-    reg_type: amdsmi_wrapper.amdsmi_reg_type_t,
+    reg_type: AmdSmiRegType,
 ) -> Dict[str, Any]:
     if not isinstance(processor_handle, amdsmi_wrapper.amdsmi_processor_handle):
         raise AmdSmiParameterException(
