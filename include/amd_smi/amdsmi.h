@@ -961,7 +961,8 @@ typedef enum {
 #define AMDSMI_EVENT_MASK_FROM_INDEX(i) (1ULL << ((i) - 1))
 
 //! Maximum number of characters an event notification message will be
-#define MAX_EVENT_NOTIFICATION_MSG_SIZE 64
+// matches kfd message max size
+#define MAX_EVENT_NOTIFICATION_MSG_SIZE 96
 
 /**
  * Event notification data returned from event notification API
