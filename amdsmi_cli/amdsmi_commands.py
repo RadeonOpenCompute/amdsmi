@@ -5505,7 +5505,14 @@ class AMDSMICommands():
                 events = listener.read(2000)
                 for event in events:
                     values_dict["event"] = event["event"]
-                    values_dict["message"] = event["message"]
+                    # parse message as it's own dictionary
+                    message_list = event["message"].split("  ")
+                    message_dict = {}
+                    for item in message_list:
+                        if not item == "":
+                            item_list = item.split(": ")
+                            message_dict.update({item_list[0]: item_list[1]})
+                    values_dict["message"] = message_dict
                     commands.logger.store_output(device, 'values', values_dict)
                     commands.logger.print_output()
             except amdsmi_exception.AmdSmiLibraryException as e:
