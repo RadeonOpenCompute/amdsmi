@@ -3921,7 +3921,8 @@ class AMDSMICommands():
                 command = " ".join(sys.argv[1:])
                 raise AmdSmiRequiredCommandException(command, self.logger.format)
         else:
-            if not any([args.process_isolation is not None]):
+            if not any([args.process_isolation is not None,
+                        args.clk_limit is not None]):
                 command = " ".join(sys.argv[1:])
                 raise AmdSmiRequiredCommandException(command, self.logger.format)
 
@@ -4120,48 +4121,48 @@ class AMDSMICommands():
                         raise PermissionError('Command requires elevation') from e
                     raise ValueError(f"Unable to set XGMI policy to {args.xgmi_plpd} on {gpu_string}") from e
                 self.logger.store_output(args.gpu, 'xgmiplpd', f"Successfully set per-link power down policy to id {args.xgmi_plpd}")
-            if isinstance(args.clk_limit, tuple):
-                clk_type = args.clk_limit.clk_type
-                lim_type = args.clk_limit.lim_type
-                val = args.clk_limit.val
-                val_changed = True # Assume Clock limit value is changed
+        if isinstance(args.clk_limit, tuple):
+            clk_type = args.clk_limit.clk_type
+            lim_type = args.clk_limit.lim_type
+            val = args.clk_limit.val
+            val_changed = True # Assume Clock limit value is changed
 
-                # Validate the value against the extremum
-                try:
-                    # Parser only allows two options sclk or mclk
-                    if clk_type == "sclk":
-                        amdsmi_clk_type =  amdsmi_interface.AmdSmiClkType.GFX
-                    elif clk_type == "mclk":
-                        amdsmi_clk_type =  amdsmi_interface.AmdSmiClkType.MEM
-                    clk_tuple = amdsmi_interface.amdsmi_get_clock_info(args.gpu, amdsmi_clk_type)
+            # Validate the value against the extremum
+            try:
+                # Parser only allows two options sclk or mclk
+                if clk_type == "sclk":
+                    amdsmi_clk_type =  amdsmi_interface.AmdSmiClkType.GFX
+                elif clk_type == "mclk":
+                    amdsmi_clk_type =  amdsmi_interface.AmdSmiClkType.MEM
+                clk_tuple = amdsmi_interface.amdsmi_get_clock_info(args.gpu, amdsmi_clk_type)
 
-                    if lim_type == "min":
-                        if val > clk_tuple['max_clk']:
-                            raise IndexError("cannot set min value greater than max")
-                        if val == clk_tuple['min_clk']:
-                            val_changed = False # Clock limit value did not changed
+                if lim_type == "min":
+                    if val > clk_tuple['max_clk']:
+                        raise IndexError("cannot set min value greater than max")
+                    if val == clk_tuple['min_clk']:
+                        val_changed = False # Clock limit value did not changed
 
-                    if lim_type == "max":
-                        if val < clk_tuple['min_clk']:
-                            raise IndexError("cannot set max value less than min")
-                        if val == clk_tuple['max_clk']:
-                            val_changed = False # Clock limit value did not changed
-                except amdsmi_exception.AmdSmiLibraryException as e:
-                    logging.debug("Failed to get clock extremum info for gpu %s | %s", gpu_id, e.get_error_info())
+                if lim_type == "max":
+                    if val < clk_tuple['min_clk']:
+                        raise IndexError("cannot set max value less than min")
+                    if val == clk_tuple['max_clk']:
+                        val_changed = False # Clock limit value did not changed
+            except amdsmi_exception.AmdSmiLibraryException as e:
+                logging.debug("Failed to get clock extremum info for gpu %s | %s", gpu_id, e.get_error_info())
 
-                # Set the value
-                try:
-                    if val_changed:
-                        amdsmi_interface.amdsmi_set_gpu_clk_limit(args.gpu, clk_type, lim_type, val)
-                except amdsmi_exception.AmdSmiLibraryException as e:
-                    if e.get_error_code() == amdsmi_interface.amdsmi_wrapper.AMDSMI_STATUS_NO_PERM:
-                        raise PermissionError('Command requires elevation') from e
-                    raise ValueError(f"Unable to set {args.clk_limit.lim_type} of {args.clk_limit.clk_type} to {args.clk_limit.val} on {gpu_string}") from e
-
+            # Set the value
+            try:
                 if val_changed:
-                    self.logger.store_output(args.gpu, 'clk_limit', f"Successfully changed {args.clk_limit.lim_type} of {args.clk_limit.clk_type} to {args.clk_limit.val}")
-                else:
-                    self.logger.store_output(args.gpu, 'clk_limit', f"Clock limit is already set to {args.clk_limit.val}")
+                    amdsmi_interface.amdsmi_set_gpu_clk_limit(args.gpu, clk_type, lim_type, val)
+            except amdsmi_exception.AmdSmiLibraryException as e:
+                if e.get_error_code() == amdsmi_interface.amdsmi_wrapper.AMDSMI_STATUS_NO_PERM:
+                    raise PermissionError('Command requires elevation') from e
+                raise ValueError(f"Unable to set {args.clk_limit.lim_type} of {args.clk_limit.clk_type} to {args.clk_limit.val} on {gpu_string}") from e
+
+            if val_changed:
+                self.logger.store_output(args.gpu, 'clk_limit', f"Successfully changed {args.clk_limit.lim_type} of {args.clk_limit.clk_type} to {args.clk_limit.val}")
+            else:
+                self.logger.store_output(args.gpu, 'clk_limit', f"Clock limit is already set to {args.clk_limit.val}")
 
         if isinstance(args.process_isolation, int):
             status_string = "Enabled" if args.process_isolation else "Disabled"
