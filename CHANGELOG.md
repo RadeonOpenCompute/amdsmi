@@ -4,6 +4,25 @@ Full documentation for amd_smi_lib is available at [https://rocm.docs.amd.com/pr
 
 ***All information listed below is for reference and subject to change.***
 
+## amd_smi_lib for ROCm 6.4.0
+
+### Added
+
+### Changed
+
+### Removed
+
+### Optimized
+
+- **Modified `amd-smi` CLI to allow case insensitive arguments if the argument does not begin with a single dash**.  
+  - With this change `amd-smi version` and `amd-smi VERSION` will now yield the same output.
+  - `amd-smi static --bus` and `amd-smi STATIC --BUS` will produce identical results.
+  - `amd-smi static -b` and `amd-smi static -B` will still return different results (-b for bus and -B for board).
+
+### Resolved issues
+
+### Upcoming changes
+
 ## amd_smi_lib for ROCm 6.3.0
 
 ### Added
