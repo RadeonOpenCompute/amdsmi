@@ -25,19 +25,9 @@ import re
 import time
 from typing import Dict
 from enum import Enum
-import yaml
 import inspect
-
 from amdsmi_helpers import AMDSMIHelpers
 import amdsmi_cli_exceptions
-
-### Custom YAML Functions
-# Dumper class to preserve order of yaml.dump
-class CustomDumper(yaml.Dumper):
-    def represent_dict_preserve_order(self, data):
-        return self.represent_dict(data.items())
-def has_sort_keys_option(): # to check if sort_keys is available
-    return 'sort_keys' in inspect.signature(yaml.dump).parameters
 
 class AMDSMILogger():
     def __init__(self, format='human_readable', destination='stdout') -> None:
@@ -233,15 +223,8 @@ class AMDSMILogger():
 
         capitalized_json["AMDSMI_SPACING_REMOVAL"] = tabbed_dictionary
 
-        json_string = json.dumps(capitalized_json, indent=4)
-
-        if has_sort_keys_option():
-            yaml_data = yaml.safe_load(json_string)
-            yaml_output = yaml.dump(yaml_data, sort_keys=False, allow_unicode=True)
-        else:
-            CustomDumper.add_representer(dict, CustomDumper.represent_dict_preserve_order)
-            yaml_data = yaml.safe_load(json_string)
-            yaml_output = yaml.dump(yaml_data, Dumper=CustomDumper, allow_unicode=True, default_flow_style=False)
+        # Convert the capitalized JSON to a YAML-like string
+        yaml_output = self.custom_dump(capitalized_json)
 
         # Remove a key line if it is a spacer
         yaml_output = yaml_output.replace("AMDSMI_SPACING_REMOVAL:\n", "")
@@ -264,6 +247,19 @@ class AMDSMILogger():
 
         return clean_yaml_output
 
+    def custom_dump(self, data, indent=0):
+        """Converts a Python dictionary to a YAML-like string."""
+        yaml_string = ""
+        for key, value in data.items():
+            if isinstance(value, dict):
+                yaml_string += "  " * indent + f"{key}:\n" + self.custom_dump(value, indent + 1)
+            elif isinstance(value, list):
+                yaml_string += "  " * indent + f"{key}:\n"
+                for item in value:
+                    yaml_string += "  " * (indent + 1) + f"- {item}\n"
+            else:
+                yaml_string += "  " * indent + f"{key}: {value}\n"
+        return yaml_string
 
     def flatten_dict(self, target_dict, topology_override=False):
         """This will flatten a dictionary out to a single level of key value stores

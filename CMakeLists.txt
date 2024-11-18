@@ -28,7 +28,7 @@ find_program(GIT NAMES git)
 
 ## Setup the package version based on git tags.
 set(PKG_VERSION_GIT_TAG_PREFIX "amdsmi_pkg_ver")
-get_package_version_number("24.7.1" ${PKG_VERSION_GIT_TAG_PREFIX} GIT)
+get_package_version_number("24.7.0" ${PKG_VERSION_GIT_TAG_PREFIX} GIT)
 message("Package version: ${PKG_VERSION_STR}")
 set(${AMD_SMI_LIBS_TARGET}_VERSION_MAJOR "${CPACK_PACKAGE_VERSION_MAJOR}")
 set(${AMD_SMI_LIBS_TARGET}_VERSION_MINOR "${CPACK_PACKAGE_VERSION_MINOR}")
@@ -106,13 +106,6 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wconversion -Wcast-align")
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wformat=2 -fno-common -Wstrict-overflow")
 # Intentionally leave out -Wsign-promo. It causes spurious warnings.
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Woverloaded-virtual -Wreorder")
-
-# Add CMAKE debug flags
-if ("${CMAKE_BUILD_TYPE}" STREQUAL Release)
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O2")
-else ()
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -ggdb -O0 -DDEBUG")
-endif ()
 
 set(COMMON_SRC_DIR "${PROJECT_SOURCE_DIR}/src")
 set(ROCM_SRC_DIR "${PROJECT_SOURCE_DIR}/rocm_smi/src")
@@ -261,7 +254,7 @@ install(
 add_subdirectory(goamdsmi_shim)
 
 #Debian package specific variables
-set(CPACK_DEBIAN_PACKAGE_RECOMMENDS "python3-argcomplete, libdrm-dev, python3-yaml")
+set(CPACK_DEBIAN_PACKAGE_RECOMMENDS "python3-argcomplete, libdrm-dev")
 set(CPACK_DEBIAN_ASAN_PACKAGE_RECOMMENDS ${CPACK_DEBIAN_PACKAGE_RECOMMENDS})
 set(CPACK_DEBIAN_DEV_PACKAGE_RECOMMENDS ${CPACK_DEBIAN_PACKAGE_RECOMMENDS})
 set(CPACK_DEBIAN_PACKAGE_DEPENDS "sudo, python3 (>= 3.6.8), python3-pip")
@@ -285,7 +278,7 @@ set(CPACK_RPM_PACKAGE_SUGGESTS "python3-argcomplete")
 set(CPACK_RPM_DEV_PACKAGE_SUGGESTS ${CPACK_RPM_PACKAGE_SUGGESTS})
 set(CPACK_RPM_ASAN_PACKAGE_SUGGESTS ${CPACK_RPM_PACKAGE_SUGGESTS})
 # python version gated by rhel8 :(
-set(CPACK_RPM_PACKAGE_REQUIRES "sudo, python3 >= 3.6.8, python3-pip, python3-PyYAML")
+set(CPACK_RPM_PACKAGE_REQUIRES "sudo, python3 >= 3.6.8, python3-pip")
 set(CPACK_RPM_DEV_PACKAGE_REQUIRES ${CPACK_RPM_PACKAGE_REQUIRES})
 set(CPACK_RPM_ASAN_PACKAGE_REQUIRES ${CPACK_RPM_PACKAGE_REQUIRES})
 
