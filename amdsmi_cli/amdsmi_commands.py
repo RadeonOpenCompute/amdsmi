@@ -3893,7 +3893,7 @@ class AMDSMICommands():
             args.process_isolation = process_isolation
         if clk_limit:
             args.clk_limit = clk_limit
- 
+
         # Handle No GPU passed
         if args.gpu == None:
             args.gpu = self.device_handles

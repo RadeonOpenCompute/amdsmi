@@ -1250,11 +1250,6 @@ rsmi_dev_perf_level_set_v1(uint32_t dv_ind, rsmi_dev_perf_level_t perf_level) {
     return RSMI_STATUS_INVALID_ARGS;
   }
 
-  // Bare Metal only feature
-  if (amd::smi::is_vm_guest()) {
-    return RSMI_STATUS_NOT_SUPPORTED;
-  }
-
   DEVICE_MUTEX
   return set_dev_value(amd::smi::kDevPerfLevel, dv_ind, perf_level);
   CATCH
