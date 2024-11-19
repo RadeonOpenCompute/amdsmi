@@ -19,6 +19,26 @@ Full documentation for amd_smi_lib is available at [https://rocm.docs.amd.com/pr
   - `amd-smi static --bus` and `amd-smi STATIC --BUS` will produce identical results.
   - `amd-smi static -b` and `amd-smi static -B` will still return different results (-b for bus and -B for board).
 
+- **Converted xgmi read and write from KB's to readable units**.  
+  - With this change `amd-smi xgmi` will now display the statistics in dynamically selected readable units.
+  - Example output is shown below.
+
+```shell
+$ amd-smi xgmi
+LINK METRIC TABLE:
+       bdf          bit_rate max_bandwidth link_type 0000:05:00.0 0000:26:00.0 0000:46:00.0 0000:65:00.0 0000:85:00.0 0000:a6:00.0 0000:c6:00.0 0000:e5:00.0
+GPU0   0000:05:00.0 32 Gb/s  512 Gb/s      XGMI
+ Read                                               N/A          1.123 PB     1.123 PB     1.123 PB     1.123 PB     1.123 PB     1.123 PB     1.123 PB
+ Write                                              N/A          229.1 MB     229.1 MB     229.1 MB     229.1 MB     229.1 MB     229.1 MB     229.1 MB
+GPU1   0000:26:00.0 32 Gb/s  512 Gb/s      XGMI
+ Read                                               1.123 PB     N/A          1.123 PB     1.123 PB     1.123 PB     1.123 PB     1.123 PB     1.123 PB
+ Write                                              229.1 MB     N/A          229.1 MB     229.1 MB     229.1 MB     229.1 MB     229.1 MB     229.1 MB
+GPU2   0000:46:00.0 32 Gb/s  512 Gb/s      XGMI
+ Read                                               1.123 PB     1.123 PB     N/A          1.123 PB     1.123 PB     1.123 PB     1.123 PB     1.123 PB
+ Write                                              229.1 MB     229.1 MB     N/A          229.1 MB     229.1 MB     229.1 MB     229.1 MB     229.1 MB
+...
+```
+
 ### Resolved issues
 
 ### Upcoming changes
