@@ -5270,8 +5270,8 @@ class AMDSMICommands():
 
                     data_unit = 'KB'
                     if self.logger.is_human_readable_format():
-                        dest_link_dict['read'] = f"{read} {data_unit}"
-                        dest_link_dict['write'] = f"{write} {data_unit}"
+                        dest_link_dict['read'] = self.helpers.convert_bytes_to_readable(read * 1024, True)
+                        dest_link_dict['write'] = self.helpers.convert_bytes_to_readable(write * 1024, True)
                     elif self.logger.is_json_format():
                         dest_link_dict['read'] = {"value" : read,
                                                  "unit" : data_unit}
@@ -5322,8 +5322,8 @@ class AMDSMICommands():
                     tabular_output.append(tabular_output_dict)
 
                     # Create Read and Write rows and add to tabular_output
-                    read_output_dict = {"RW" : "Read"}
-                    write_output_dict = {"RW" : "Write"}
+                    read_output_dict = {"RW" : " Read"}
+                    write_output_dict = {"RW" : " Write"}
                     for key, value in xgmi_dict.items():
                         if key == "link_metrics":
                             for link_key, link_value in value.items():
