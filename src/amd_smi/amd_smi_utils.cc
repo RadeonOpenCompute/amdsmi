@@ -527,7 +527,7 @@ amdsmi_status_t smi_amdgpu_get_driver_version(amd::smi::AMDSmiGPUDevice* device,
 
         fclose(fp);
         if (length) {
-            *length = version[len-1] == '\n' ? len - 1 : len;
+            *length = version[len-1] == '\n' ? static_cast<int>(len - 1) : static_cast<int>(len);
         }
         version[len-1] = version[len-1] == '\n' ? '\0' : version[len-1];
     }
@@ -647,6 +647,7 @@ std::string smi_amdgpu_split_string(std::string str, char delim) {
     tokens.push_back(token);
     return token;  // return 1st match
   }
+  return "";
 }
 
 // wrapper to return string expression of a rsmi_status_t return

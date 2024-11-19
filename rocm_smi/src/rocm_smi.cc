@@ -186,39 +186,6 @@ static uint64_t freq_string_to_int(const std::vector<std::string> &freq_lines,
   return static_cast<uint64_t>(freq*multiplier);
 }
 
-static void freq_volt_string_to_point(std::string in_line,
-                                                     rsmi_od_vddc_point_t *pt) {
-  std::istringstream fs_vlt(in_line);
-
-  assert(pt != nullptr);
-  THROW_IF_NULLPTR_DEREF(pt)
-
-  uint32_t ind;
-  float freq;
-  float volts;
-  std::string junk;
-  std::string freq_units_str;
-  std::string volts_units_str;
-
-  fs_vlt >> ind;
-  fs_vlt >> junk;  // colon
-  fs_vlt >> freq;
-  fs_vlt >> freq_units_str;
-  fs_vlt >> volts;
-  fs_vlt >> volts_units_str;
-
-  if (freq < 0) {
-    throw amd::smi::rsmi_exception(RSMI_STATUS_UNEXPECTED_SIZE, __FUNCTION__);
-  }
-
-  long double multiplier = get_multiplier_from_str(freq_units_str[0]);
-
-  pt->frequency = static_cast<uint64_t>(freq*multiplier);
-
-  multiplier = get_multiplier_from_str(volts_units_str[0]);
-  pt->voltage = static_cast<uint64_t>(volts*multiplier);
-}
-
 static void od_value_pair_str_to_range(std::string in_line, rsmi_range_t *rg) {
   std::istringstream fs_rng(in_line);
 
@@ -898,7 +865,7 @@ rsmi_status_t rsmi_ras_feature_info_get(
     auto eeprom_version = strtoul(
       feature_line.substr(strlen(version_key)).c_str(), nullptr, 16);
     if (errno == 0) {
-      ras_feature->ras_eeprom_version = eeprom_version;
+      ras_feature->ras_eeprom_version = static_cast<uint32_t>(eeprom_version);
     } else {
       return RSMI_STATUS_NOT_SUPPORTED;
     }
@@ -922,7 +889,7 @@ rsmi_status_t rsmi_ras_feature_info_get(
     auto schema = strtoul(
       feature_line.substr(strlen(schema_key)).c_str(), nullptr, 16);
     if (errno == 0) {
-      ras_feature->ecc_correction_schema_flag = schema;
+      ras_feature->ecc_correction_schema_flag = static_cast<uint32_t>(schema);
     } else {
       return RSMI_STATUS_NOT_SUPPORTED;
     }
@@ -2044,7 +2011,7 @@ rsmi_dev_gpu_clk_freq_set(uint32_t dv_ind,
   // will have read-only perms, and the OS will deny access, before the request hits the driver level
   if (status == RSMI_STATUS_PERMISSION){
     bool read_only = false;
-    int perms = amd::smi::isReadOnlyForAll(dev->path(), &read_only);
+    amd::smi::isReadOnlyForAll(dev->path(), &read_only);
     if(read_only){
       return RSMI_STATUS_NOT_SUPPORTED;
     }
@@ -2113,8 +2080,6 @@ rsmi_status_t rsmi_dev_process_isolation_get(uint32_t dv_ind,
 
 rsmi_status_t rsmi_dev_process_isolation_set(uint32_t dv_ind,
                              uint32_t pisolate) {
-  rsmi_status_t ret;
-
   TRY
   std::ostringstream ss;
   ss << __PRETTY_FUNCTION__ << " | ======= start =======";
@@ -2178,8 +2143,6 @@ rsmi_status_t rsmi_dev_process_isolation_set(uint32_t dv_ind,
 }
 
 rsmi_status_t rsmi_dev_gpu_run_cleaner_shader(uint32_t dv_ind) {
-  rsmi_status_t ret;
-
   TRY
   std::ostringstream ss;
   ss << __PRETTY_FUNCTION__ << " | ======= start =======";
@@ -2294,8 +2257,6 @@ rsmi_dev_xgmi_plpd_get(uint32_t dv_ind,
 rsmi_status_t
 rsmi_dev_xgmi_plpd_set(uint32_t dv_ind,
                       uint32_t plpd_id) {
-  rsmi_status_t ret;
-
   TRY
   std::ostringstream ss;
   ss << __PRETTY_FUNCTION__ << " | ======= start =======";
@@ -2408,8 +2369,6 @@ rsmi_dev_soc_pstate_get(uint32_t dv_ind,
 rsmi_status_t
 rsmi_dev_soc_pstate_set(uint32_t dv_ind,
                       uint32_t policy_id) {
-  rsmi_status_t ret;
-
   TRY
   std::ostringstream ss;
   ss << __PRETTY_FUNCTION__ << " | ======= start =======";
@@ -2977,25 +2936,25 @@ rsmi_dev_pci_bandwidth_get(uint32_t dv_ind, rsmi_pcie_bandwidth_t *b) {
     return ret;
   }
 
-  // Hardcode based on PCIe specification: Search PCI_Express on wikipedia
+  // Hardcode based on PCIe specification: search PCI_Express on wikipedia
   const uint32_t link_width[] = {1, 2, 4, 8, 12, 16};
   const uint32_t link_speed[] = {25, 50, 80, 160};  // 0.1 Ghz
   const uint32_t WIDTH_DATA_LENGTH = sizeof(link_width)/sizeof(uint32_t);
   const uint32_t SPEED_DATA_LENGTH = sizeof(link_speed)/sizeof(uint32_t);
 
   // Calculate the index
-  uint32_t width_index = -1;
-  uint32_t speed_index = -1;
+  int32_t width_index = -1;
+  int32_t speed_index = -1;
   uint32_t cur_index = 0;
   for (cur_index = 0; cur_index < WIDTH_DATA_LENGTH; cur_index++) {
     if (link_width[cur_index] == gpu_metrics.pcie_link_width) {
-      width_index = cur_index;
+      width_index = static_cast<int32_t>(cur_index);
       break;
     }
   }
   for (cur_index = 0; cur_index < SPEED_DATA_LENGTH; cur_index++) {
     if (link_speed[cur_index] == gpu_metrics.pcie_link_speed) {
-      speed_index = cur_index;
+      speed_index = static_cast<int32_t>(cur_index);
       break;
     }
   }
@@ -3004,7 +2963,7 @@ rsmi_dev_pci_bandwidth_get(uint32_t dv_ind, rsmi_pcie_bandwidth_t *b) {
   }
   // Set possible lanes and frequencies
   b->transfer_rate.num_supported = WIDTH_DATA_LENGTH * SPEED_DATA_LENGTH;
-  b->transfer_rate.current = speed_index*WIDTH_DATA_LENGTH + width_index;
+  b->transfer_rate.current = static_cast<uint32_t>(speed_index)*WIDTH_DATA_LENGTH + static_cast<uint32_t>(width_index);
   for (cur_index = 0; cur_index < WIDTH_DATA_LENGTH * SPEED_DATA_LENGTH; cur_index++) {
     b->transfer_rate.frequency[cur_index] =
       static_cast<long>(link_speed[cur_index/WIDTH_DATA_LENGTH]) * 100 * 1000000L;
@@ -3930,7 +3889,6 @@ rsmi_dev_memory_total_get(uint32_t dv_ind, rsmi_memory_type_t mem_type,
 rsmi_status_t rsmi_dev_cache_info_get(
       uint32_t dv_ind, rsmi_gpu_cache_info_t *info) {
   TRY
-  rsmi_status_t ret;
   std::ostringstream ss;
   ss << __PRETTY_FUNCTION__ << "| ======= start =======";
   LOG_TRACE(ss);
@@ -4214,7 +4172,6 @@ rsmi_utilization_count_get(uint32_t dv_ind,
 
   rsmi_status_t ret;
   rsmi_gpu_metrics_t gpu_metrics;
-  uint32_t val_ui32;
   uint16_t val_counter(0);
 
   ret = rsmi_dev_gpu_metrics_info_get(dv_ind, &gpu_metrics);
@@ -5704,10 +5661,6 @@ rsmi_dev_memory_partition_set(uint32_t dv_ind,
   REQUIRE_ROOT_ACCESS
   DEVICE_MUTEX
   const int k1000_MS_WAIT = 1000;
-  const uint32_t kMaxBoardLength = 128;
-  bool isCorrectDevice = false;
-  char boardName[kMaxBoardLength];
-  boardName[0] = '\0';
 
   const uint32_t kMaxMemoryCapabilitiesSize = 30;
   char available_memory_capabilities[kMaxMemoryCapabilitiesSize];
