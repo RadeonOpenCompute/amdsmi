@@ -755,7 +755,7 @@ class AMDSMIHelpers():
           ****** WARNING ******\n
           Setting Dynamic Memory (NPS) partition modes require users to quit all GPU workloads.
           AMD SMI will then attempt to change memory (NPS) partition mode.
-          Upon a successful set, AMD SMI will then initiate an action to restart amdgpu driver.
+          Upon a successful set, AMD SMI will then initiate an action to restart AMD GPU driver.
           This action will change all GPU's in the hive to the requested memory (NPS) partition mode.
 
           Please use this utility with caution.

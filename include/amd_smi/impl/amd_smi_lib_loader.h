@@ -49,6 +49,7 @@ class AMDSmiLibraryLoader {
  private:
      void* libHandler_;
      std::mutex library_mutex_;
+     bool library_loaded_ = false;
 };
 
 template<typename T> amdsmi_status_t AMDSmiLibraryLoader::load_symbol(
