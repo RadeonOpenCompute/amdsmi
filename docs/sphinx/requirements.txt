@@ -131,7 +131,7 @@ requests==2.32.3
     # via
     #   pygithub
     #   sphinx
-rocm-docs-core[api-reference]==1.8.5
+rocm-docs-core[api-reference]==1.9.0
     # via -r requirements.in
 six==1.16.0
     # via python-dateutil
@@ -176,7 +176,7 @@ sphinxcontrib-serializinghtml==2.0.0
     # via sphinx
 tomli==2.1.0
     # via sphinx
-tqdm==4.67.0
+tqdm==4.67.1
     # via mpire
 typing-extensions==4.12.2
     # via
@@ -186,5 +186,5 @@ urllib3==2.2.3
     # via
     #   pygithub
     #   requests
-wrapt==1.16.0
+wrapt==1.17.0
     # via deprecated
