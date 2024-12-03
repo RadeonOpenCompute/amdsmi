@@ -188,12 +188,11 @@ amdsmi_status_t smi_amdgpu_get_board_info(amd::smi::AMDSmiGPUDevice* device, amd
     std::string manufacturer_name_path = "/sys/class/drm/" + device->get_gpu_path() + std::string("/device/manufacturer");
     std::string product_name_path = "/sys/class/drm/" + device->get_gpu_path() + std::string("/device/product_name");
 
-    openFileAndModifyBuffer(model_number_path, info->model_number, AMDSMI_256_LENGTH);
-    openFileAndModifyBuffer(product_serial_path, info->product_serial, AMDSMI_NORMAL_STRING_LENGTH);
-    openFileAndModifyBuffer(fru_id_path, info->fru_id, AMDSMI_NORMAL_STRING_LENGTH);
-    openFileAndModifyBuffer(manufacturer_name_path, info->manufacturer_name,
-                            AMDSMI_MAX_STRING_LENGTH);
-    openFileAndModifyBuffer(product_name_path, info->product_name, AMDSMI_256_LENGTH);
+    openFileAndModifyBuffer(model_number_path, info->model_number, AMDSMI_MAX_STRING_LENGTH);
+    openFileAndModifyBuffer(product_serial_path, info->product_serial, AMDSMI_MAX_STRING_LENGTH);
+    openFileAndModifyBuffer(fru_id_path, info->fru_id, AMDSMI_MAX_STRING_LENGTH);
+    openFileAndModifyBuffer(manufacturer_name_path, info->manufacturer_name, AMDSMI_MAX_STRING_LENGTH);
+    openFileAndModifyBuffer(product_name_path, info->product_name, AMDSMI_MAX_STRING_LENGTH);
 
     std::ostringstream ss;
     ss << __PRETTY_FUNCTION__ << "[Before correction] "
