@@ -3,6 +3,47 @@
 Full documentation for amd_smi_lib is available at [https://rocm.docs.amd.com/projects/amdsmi](https://rocm.docs.amd.com/projects/amdsmi/en/latest/).
 
 ***All information listed below is for reference and subject to change.***
+## amd_smi_lib for ROCm 6.4.0
+
+### Added
+
+- **Added new command `amd-smi static -C/--clock`**.  
+  This new command displays the clock frequency performance levels for the selected GPUs and clocks.
+
+```shell
+amd-smi static --clock all -g 0
+GPU: 0
+    CLOCK:
+        SYS:
+            CURRENT LEVEL: 2
+            FREQUENCY_LEVELS:
+                0: 300 MHz
+                1: 904 MHz
+                2: 1165 MHz
+                3: 1360 MHz
+                4: 1440 MHz
+                5: 1544 MHz
+                6: 1627 MHz
+                7: 1720 MHz
+                8: 1800 MHz
+        MEM:
+            CURRENT LEVEL: 0
+            FREQUENCY_LEVELS:
+                0: 167 MHz
+        DF:
+            CURRENT LEVEL: 0
+            FREQUENCY_LEVELS:
+                0: 1400 MHz
+        SOC:
+            CURRENT LEVEL: 0
+            FREQUENCY_LEVELS:
+                0: 302 MHz
+        DCEF: N/A
+        VCLK0: N/A
+        VCLK1: N/A
+        DCLK0: N/A
+        DCLK1: N/A
+```
 
 ## amd_smi_lib for ROCm 6.4.0
 

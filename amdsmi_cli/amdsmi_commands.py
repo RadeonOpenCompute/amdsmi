@@ -31,7 +31,7 @@ import os
 from _version import __version__
 from amdsmi_helpers import AMDSMIHelpers
 from amdsmi_logger import AMDSMILogger
-from amdsmi_cli_exceptions import AmdSmiRequiredCommandException
+from amdsmi_cli_exceptions import AmdSmiRequiredCommandException, AmdSmiInvalidParameterValueException
 from rocm_version import get_rocm_version
 from amdsmi import amdsmi_interface
 from amdsmi import amdsmi_exception
@@ -271,7 +271,7 @@ class AMDSMICommands():
     def static_gpu(self, args, multiple_devices=False, gpu=None, asic=None, bus=None, vbios=None,
                         limit=None, driver=None, ras=None, board=None, numa=None, vram=None,
                         cache=None, partition=None, dfc_ucode=None, fb_info=None, num_vf=None,
-                        soc_pstate=None, xgmi_plpd=None, process_isolation=None):
+                        soc_pstate=None, xgmi_plpd=None, process_isolation=None, clock=None):
         """Get Static information for target gpu
 
         Args:
@@ -321,12 +321,19 @@ class AMDSMICommands():
             args.cache = cache
         if process_isolation:
             args.process_isolation = process_isolation
+        if clock:
+            args.clock = clock
+        # args.clock defaults to False so if it was overwritten to empty list, that indicates that it was given as an arguments but with an empty list
+        if args.clock == []:
+            args.clock = True
 
         # Store args that are applicable to the current platform
         current_platform_args = ["asic", "bus", "vbios", "driver", "ras",
-                                 "vram", "cache", "board", "process_isolation"]
+                                 "vram", "cache", "board", "process_isolation",
+                                 "clock"]
         current_platform_values = [args.asic, args.bus, args.vbios, args.driver, args.ras,
-                                   args.vram, args.cache, args.board, args.process_isolation]
+                                   args.vram, args.cache, args.board, args.process_isolation,
+                                   args.clock]
 
         if self.helpers.is_linux() and self.helpers.is_baremetal():
             if partition:
@@ -829,6 +836,58 @@ class AMDSMICommands():
                 logging.debug("Failed to get cache info for gpu %s | %s", gpu_id, e.get_error_info())
 
             static_dict['cache_info'] = cache_info_list
+        if 'clock' in current_platform_args:
+            if isinstance(args.clock, bool) and args.clock == True:
+                args.clock = ['sys', 'mem', 'df', 'soc', 'dcef', 'vclk0', 'vclk1', 'dclk0', 'dclk1']
+            if isinstance(args.clock, list):
+                # remove potential duplicates from list
+                args.clock = list(set(args.clock))
+                # check that clock is valid option
+                if "all" in args.clock or len(args.clock) == 0:
+                    args.clock = ['sys', 'mem', 'df', 'soc', 'dcef', 'vclk0', 'vclk1', 'dclk0', 'dclk1']
+                clk_dict = {}
+
+                for clk in args.clock:
+                    clk_type = clk.lower()
+                    if clk_type == "sys":
+                        clk_type_conversion = amdsmi_interface.AmdSmiClkType.SYS
+                    elif clk_type == "mem":
+                        clk_type_conversion = amdsmi_interface.AmdSmiClkType.MEM
+                    elif clk_type == "df":
+                        clk_type_conversion = amdsmi_interface.AmdSmiClkType.DF
+                    elif clk_type == "soc":
+                        clk_type_conversion = amdsmi_interface.AmdSmiClkType.SOC
+                    elif clk_type == "dcef":
+                        clk_type_conversion = amdsmi_interface.AmdSmiClkType.DCEF
+                    # vclk and dclk currently do not support levels so average clk is given for frequency levels
+                    elif clk_type == "vclk0":
+                        clk_type_conversion = amdsmi_interface.AmdSmiClkType.VCLK0
+                    elif clk_type == "vclk1":
+                        clk_type_conversion = amdsmi_interface.AmdSmiClkType.VCLK1
+                    elif clk_type == "dclk0":
+                        clk_type_conversion = amdsmi_interface.AmdSmiClkType.DCLK0
+                    elif clk_type == "dclk1":
+                        clk_type_conversion = amdsmi_interface.AmdSmiClkType.DCLK1
+                    else:
+                        clk_type_conversion = "N/A"
+                        output_format = self.helpers.get_output_format()
+                        raise AmdSmiInvalidParameterValueException(clk_type, output_format) # clk type given is bad
+
+                    try:
+                        frequencies = amdsmi_interface.amdsmi_get_clk_freq(args.gpu, clk_type_conversion)
+                        freq_dict = {}
+                        freq_dict.update({'current level':frequencies['current']})
+                        freq_dict.update({'frequency_levels':{}})
+                        for level in range(len(frequencies['frequency'])):
+                            freq = str(self.helpers.convert_SI_unit(frequencies['frequency'][level], AMDSMIHelpers.SI_Unit.MICRO)) + " MHz"
+                            freq_dict['frequency_levels'].update({level:freq})
+                    except amdsmi_exception.AmdSmiLibraryException as e:
+                        freq_dict = "N/A"
+                    clk_dict.update({clk:freq_dict})
+
+                static_dict['clock'] = clk_dict
+            else:
+                raise amdsmi_exception.AmdSmiParameterException(args.clock, list[str])
 
         # Convert and store output by pid for csv format
         multiple_devices_csv_override = False
@@ -864,7 +923,8 @@ class AMDSMICommands():
                 bus=None, vbios=None, limit=None, driver=None, ras=None,
                 board=None, numa=None, vram=None, cache=None, partition=None,
                 dfc_ucode=None, fb_info=None, num_vf=None, cpu=None,
-                interface_ver=None, soc_pstate=None, xgmi_plpd = None, process_isolation=None):
+                interface_ver=None, soc_pstate=None, xgmi_plpd = None, process_isolation=None,
+                clock=None):
         """Get Static information for target gpu and cpu
 
         Args:
@@ -916,7 +976,7 @@ class AMDSMICommands():
         gpu_attributes = ["asic", "bus", "vbios", "limit", "driver", "ras",
                           "board", "numa", "vram", "cache", "partition",
                           "dfc_ucode", "fb_info", "num_vf", "soc_pstate", "xgmi_plpd",
-                          "process_isolation"]
+                          "process_isolation", "clock"]
         for attr in gpu_attributes:
             if hasattr(args, attr):
                 if getattr(args, attr):
@@ -947,7 +1007,7 @@ class AMDSMICommands():
                                     bus, vbios, limit, driver, ras,
                                     board, numa, vram, cache, partition,
                                     dfc_ucode, fb_info, num_vf, soc_pstate,
-                                    process_isolation)
+                                    process_isolation, clock)
         elif self.helpers.is_amd_hsmp_initialized(): # Only CPU is initialized
             if args.cpu == None:
                 args.cpu = self.cpu_handles
@@ -962,7 +1022,7 @@ class AMDSMICommands():
                                 bus, vbios, limit, driver, ras,
                                 board, numa, vram, cache, partition,
                                 dfc_ucode, fb_info, num_vf, soc_pstate, xgmi_plpd,
-                                process_isolation)
+                                process_isolation, clock)
 
 
     def firmware(self, args, multiple_devices=False, gpu=None, fw_list=True):
