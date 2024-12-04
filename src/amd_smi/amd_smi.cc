@@ -2217,6 +2217,13 @@ amdsmi_get_clock_info(amdsmi_processor_handle processor_handle, amdsmi_clk_type_
     case AMDSMI_CLK_TYPE_DCLK1:
         info->clk = metrics.current_dclk1;
         break;
+    case AMDSMI_CLK_TYPE_SOC:
+        info->clk = metrics.current_socclk;
+        break;
+    // fclk/df not supported by gpu metrics so providing default value which cannot be contrued to be valid
+    case AMDSMI_CLK_TYPE_DF:
+        info->clk = UINT32_MAX;
+        break;
     default:
         return AMDSMI_STATUS_INVAL;
     }

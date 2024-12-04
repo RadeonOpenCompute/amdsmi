@@ -7,8 +7,28 @@ Full documentation for amd_smi_lib is available at [https://rocm.docs.amd.com/pr
 
 ### Added
 
+- **Added fclk and socclk info to `amd-smi metric -c/--clock`**.  
+  fclk and socclk information such as min and max clock have been added to the metric command, in line with all the other clocks.  
+
+  ```shell
+  amd-smi metric -c -g 1
+  ...
+          FCLK_0:
+            CLK: 2301 MHz
+            MIN_CLK: 601 MHz
+            MAX_CLK: 2301 MHz
+            CLK_LOCKED: N/A
+            DEEP_SLEEP: DISABLED
+        SOCCLK_0:
+            CLK: 1500 MHz
+            MIN_CLK: 500 MHz
+            MAX_CLK: 1500 MHz
+            CLK_LOCKED: N/A
+            DEEP_SLEEP: DISABLED
+  ```
+
 - **Added new command `amd-smi set -c/--clock-level`**.  
-  This new command sets the performance level of the selected clock on the desired GPUs. The command can accept a range of acceptable levels, but will not set the level when a level is beyond the number of frequency levels as show in `amd-smi static -C/--clock`
+  This new command sets the performance level of the selected clock on the desired GPUs. The command can accept a range of acceptable levels, but will not set the level when a level is beyond the number of frequency levels as show in `amd-smi static -C/--clock`.  
 
 ```shell
 sudo amd-smi set -c sclk 5 6
