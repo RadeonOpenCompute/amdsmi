@@ -2956,21 +2956,31 @@ def amdsmi_reset_gpu_fan(
 
 def amdsmi_set_clk_freq(
     processor_handle: amdsmi_wrapper.amdsmi_processor_handle,
-    clk_type: AmdSmiClkType,
+    clk_type: str,
     freq_bitmask: int,
 ):
     if not isinstance(processor_handle, amdsmi_wrapper.amdsmi_processor_handle):
         raise AmdSmiParameterException(
             processor_handle, amdsmi_wrapper.amdsmi_processor_handle
         )
-    if not isinstance(clk_type, AmdSmiClkType):
-        raise AmdSmiParameterException(clk_type, AmdSmiParameterException)
+    if clk_type.lower() == "sclk":
+        clk_type_conversion = AmdSmiClkType.SYS
+    elif clk_type.lower() == "mclk":
+        clk_type_conversion = AmdSmiClkType.MEM
+    elif clk_type.lower() == "fclk":
+        clk_type_conversion = AmdSmiClkType.DF
+    elif clk_type.lower() == "socclk":
+        clk_type_conversion = AmdSmiClkType.SOC
+    else:
+        clk_type_conversion = "N/A"
+    if not isinstance(clk_type_conversion, AmdSmiClkType):
+        raise AmdSmiParameterException(clk_type_conversion, AmdSmiClkType)
     if not isinstance(freq_bitmask, int):
         raise AmdSmiParameterException(freq_bitmask, int)
     freq_bitmask = ctypes.c_uint64(freq_bitmask)
     _check_res(
         amdsmi_wrapper.amdsmi_set_clk_freq(
-            processor_handle, clk_type, freq_bitmask
+            processor_handle, clk_type_conversion, freq_bitmask
         )
     )
 

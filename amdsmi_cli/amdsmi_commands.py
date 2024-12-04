@@ -31,7 +31,7 @@ import os
 from _version import __version__
 from amdsmi_helpers import AMDSMIHelpers
 from amdsmi_logger import AMDSMILogger
-from amdsmi_cli_exceptions import AmdSmiRequiredCommandException, AmdSmiInvalidParameterValueException
+from amdsmi_cli_exceptions import AmdSmiRequiredCommandException, AmdSmiInvalidParameterException
 from rocm_version import get_rocm_version
 from amdsmi import amdsmi_interface
 from amdsmi import amdsmi_exception
@@ -871,7 +871,7 @@ class AMDSMICommands():
                     else:
                         clk_type_conversion = "N/A"
                         output_format = self.helpers.get_output_format()
-                        raise AmdSmiInvalidParameterValueException(clk_type, output_format) # clk type given is bad
+                        raise AmdSmiInvalidParameterException(clk_type, output_format) # clk type given is bad
 
                     try:
                         frequencies = amdsmi_interface.amdsmi_get_clk_freq(args.gpu, clk_type_conversion)
@@ -3897,7 +3897,7 @@ class AMDSMICommands():
     def set_gpu(self, args, multiple_devices=False, gpu=None, fan=None, perf_level=None,
                   profile=None, perf_determinism=None, compute_partition=None,
                   memory_partition=None, power_cap=None, soc_pstate=None, xgmi_plpd = None,
-                  process_isolation=None, clk_limit=None):
+                  process_isolation=None, clk_limit=None, clk_level=None):
         """Issue reset commands to target gpu(s)
 
         Args:
@@ -3946,6 +3946,8 @@ class AMDSMICommands():
             args.process_isolation = process_isolation
         if clk_limit:
             args.clk_limit = clk_limit
+        if clk_level:
+            args.clk_level = clk_level
 
         # Handle No GPU passed
         if args.gpu == None:
@@ -3969,6 +3971,7 @@ class AMDSMICommands():
                         args.power_cap is not None,
                         args.soc_pstate is not None,
                         args.xgmi_plpd is not None,
+                        args.clk_level is not None,
                         args.clk_limit is not None,
                         args.process_isolation is not None]):
                 command = " ".join(sys.argv[1:])
@@ -4220,6 +4223,62 @@ class AMDSMICommands():
                         raise PermissionError('Command requires elevation') from e
                     raise ValueError(f"Unable to set XGMI policy to {args.xgmi_plpd} on {gpu_string}") from e
                 self.logger.store_output(args.gpu, 'xgmiplpd', f"Successfully set per-link power down policy to id {args.xgmi_plpd}")
+            if isinstance(args.clk_level, tuple):
+                clk_type = args.clk_level.clk_type
+                perf_levels = args.clk_level.perf_levels
+
+                # check if perf levels are all valid levels
+                try:
+                    if clk_type == "sclk":
+                        clk_type_conversion = amdsmi_interface.AmdSmiClkType.SYS
+                    elif clk_type == "mclk":
+                        clk_type_conversion = amdsmi_interface.AmdSmiClkType.MEM
+                    elif clk_type == "pcie":
+                        clk_type_conversion = amdsmi_interface.AmdSmiClkType.PCIE
+                    elif clk_type == "fclk":
+                        clk_type_conversion = amdsmi_interface.AmdSmiClkType.DF
+                    elif clk_type == "socclk":
+                        clk_type_conversion = amdsmi_interface.AmdSmiClkType.SOC
+                    else:
+                        clk_type_conversion = "N/A"
+                    frequencies = amdsmi_interface.amdsmi_get_clk_freq(args.gpu, clk_type_conversion)
+                    num_supported = frequencies['num_supported']
+                except amdsmi_exception.AmdSmiLibraryException as e:
+                    pass
+
+                # convert perf_levels given to freq bit mask
+                freq_mask = 0
+                valid_level = True
+                invalid_levels = []
+                for level in perf_levels:
+                    if level < num_supported:
+                        freq_mask += 2**level
+                    else:
+                        # cancel this instance since the level should not be possible
+                        invalid_levels.append(level)
+                        valid_level = False
+
+                if valid_level:
+                    perf_levels_str = str(perf_levels).strip('[]')
+                    if clk_type.lower() == "pcie":
+                        try:
+                            amdsmi_interface.amdsmi_set_gpu_pci_bandwidth(args.gpu, freq_mask)
+                        except amdsmi_exception.AmdSmiLibraryException as e:
+                            if e.get_error_code() == amdsmi_interface.amdsmi_wrapper.AMDSMI_STATUS_NO_PERM:
+                                raise PermissionError('Command requires elevation') from e
+                            raise ValueError(f"Unable to set pcie bandwidth to perf level(s) {perf_levels_str} on {gpu_string}") from e
+                    else:
+                        try:
+                            amdsmi_interface.amdsmi_set_clk_freq(args.gpu, clk_type, freq_mask)
+                        except amdsmi_exception.AmdSmiLibraryException as e:
+                            if e.get_error_code() == amdsmi_interface.amdsmi_wrapper.AMDSMI_STATUS_NO_PERM:
+                                raise PermissionError('Command requires elevation') from e
+                            raise ValueError(f"Unable to set {clk_type} to perf level(s) {perf_levels_str} on {gpu_string}") from e
+                    self.logger.store_output(args.gpu, 'clk_level', f"Successfully changed {clk_type} perf level(s) to {perf_levels_str}")
+                else:
+                    invalid_levels_str = str(invalid_levels).strip('[]')
+                    self.logger.store_output(args.gpu, 'clk_level', f"level(s) {invalid_levels_str} is/are greater than performance levels supported for device")
+
         if isinstance(args.clk_limit, tuple):
             clk_type = args.clk_limit.clk_type
             lim_type = args.clk_limit.lim_type
@@ -4294,7 +4353,7 @@ class AMDSMICommands():
                   cpu_pwr_eff_mode=None, cpu_gmi3_link_width=None, cpu_pcie_link_rate=None,
                   cpu_df_pstate_range=None, cpu_enable_apb=None, cpu_disable_apb=None,
                   soc_boost_limit=None, core=None, core_boost_limit=None, soc_pstate=None, xgmi_plpd=None,
-                  process_isolation=None, clk_limit=None):
+                  process_isolation=None, clk_limit=None, clk_level=None):
         """Issue reset commands to target gpu(s)
 
         Args:
@@ -4346,7 +4405,7 @@ class AMDSMICommands():
         gpu_args_enabled = False
         gpu_attributes = ["fan", "perf_level", "profile", "perf_determinism", "compute_partition",
                           "memory_partition", "power_cap", "soc_pstate", "xgmi_plpd",
-                          "process_isolation", "clk_limit"]
+                          "process_isolation", "clk_limit", "clk_level"]
         for attr in gpu_attributes:
             if hasattr(args, attr):
                 if getattr(args, attr) is not None:
@@ -4414,7 +4473,7 @@ class AMDSMICommands():
                 self.set_gpu(args, multiple_devices, gpu, fan, perf_level,
                                 profile, perf_determinism, compute_partition,
                                 memory_partition, power_cap, soc_pstate, xgmi_plpd,
-                                process_isolation, clk_limit)
+                                process_isolation, clk_limit, clk_level)
         elif self.helpers.is_amd_hsmp_initialized(): # Only CPU is initialized
             if args.cpu == None and args.core == None:
                 raise ValueError('No CPU or CORE provided, specific target(s) are needed')
@@ -4434,7 +4493,7 @@ class AMDSMICommands():
             self.set_gpu(args, multiple_devices, gpu, fan, perf_level,
                             profile, perf_determinism, compute_partition,
                             memory_partition, power_cap, soc_pstate, xgmi_plpd,
-                            process_isolation, clk_limit)
+                            process_isolation, clk_limit, clk_level)
 
 
     def reset(self, args, multiple_devices=False, gpu=None, gpureset=None,

@@ -540,6 +540,8 @@ Set Arguments:
   -o, --power-cap WATTS                        Set power capacity limit
   -p, --soc-pstate POLICY_ID                   Set the GPU soc pstate policy using policy id
   -x, --xgmi-plpd POLICY_ID                    Set the GPU XGMI per-link power down policy using policy id
+  -c, --clk-level CLK_TYPE [PERF_LEVELS ...]   Set the sclk (aka gfxclk), mclk, fclk, pcie, or socclk frequency performance level.
+                                               Can take range of acceptable levels.
   -L, --clk-limit CLK_TYPE LIM_TYPE VALUE      Sets the sclk (aka gfxclk) or mclk minimum and maximum frequencies
                                                 amd-smi set -L (sclk | mclk) (min | max) value
   -R, --process-isolation STATUS               Enable or disable the GPU process isolation:

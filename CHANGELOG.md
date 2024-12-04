@@ -7,6 +7,18 @@ Full documentation for amd_smi_lib is available at [https://rocm.docs.amd.com/pr
 
 ### Added
 
+- **Added new command `amd-smi set -c/--clock-level`**.  
+  This new command sets the performance level of the selected clock on the desired GPUs. The command can accept a range of acceptable levels, but will not set the level when a level is beyond the number of frequency levels as show in `amd-smi static -C/--clock`
+
+```shell
+sudo amd-smi set -c sclk 5 6
+GPU: 0
+    CLK_LEVEL: Successfully changed sclk perf level(s) to 5, 6
+
+GPU: 1
+    CLK_LEVEL: level(s) 5, 6 is/are greater than performance levels supported for device
+```
+
 - **Added new command `amd-smi static -C/--clock`**.  
   This new command displays the clock frequency performance levels for the selected GPUs and clocks.
 
