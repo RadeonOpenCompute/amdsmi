@@ -28,7 +28,7 @@ find_program(GIT NAMES git)
 
 ## Setup the package version based on git tags.
 set(PKG_VERSION_GIT_TAG_PREFIX "amdsmi_pkg_ver")
-get_package_version_number("24.6.3" ${PKG_VERSION_GIT_TAG_PREFIX} GIT)
+get_package_version_number("24.7.1" ${PKG_VERSION_GIT_TAG_PREFIX} GIT)
 message("Package version: ${PKG_VERSION_STR}")
 set(${AMD_SMI_LIBS_TARGET}_VERSION_MAJOR "${CPACK_PACKAGE_VERSION_MAJOR}")
 set(${AMD_SMI_LIBS_TARGET}_VERSION_MINOR "${CPACK_PACKAGE_VERSION_MINOR}")
@@ -70,7 +70,7 @@ include(GNUInstallDirs)
 
 option(BUILD_TESTS "Build test suite" OFF)
 option(ENABLE_ASAN_PACKAGING "" OFF)
-option(ENABLE_ESMI_LIB "" ON)
+option(ENABLE_ESMI_LIB "Build ESMI Library" ON)
 
 include(CMakeDependentOption)
 # these options don't work without BUILD_SHARED_LIBS
@@ -107,6 +107,13 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wformat=2 -fno-common -Wstrict-overflow
 # Intentionally leave out -Wsign-promo. It causes spurious warnings.
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Woverloaded-virtual -Wreorder")
 
+# Add CMAKE debug flags
+if ("${CMAKE_BUILD_TYPE}" STREQUAL Release)
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O2")
+else ()
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -ggdb -O0 -DDEBUG")
+endif ()
+
 set(COMMON_SRC_DIR "${PROJECT_SOURCE_DIR}/src")
 set(ROCM_SRC_DIR "${PROJECT_SOURCE_DIR}/rocm_smi/src")
 set(AMDSMI_SRC_DIR "${PROJECT_SOURCE_DIR}/src/amd_smi")
@@ -122,7 +129,7 @@ if(ENABLE_ESMI_LIB)
     endif()
     if(NOT EXISTS ${PROJECT_SOURCE_DIR}/esmi_ib_library/include/asm/amd_hsmp.h)
         file(DOWNLOAD
-            https://git.kernel.org/pub/scm/linux/kernel/git/pdx86/platform-drivers-x86.git/plain/arch/x86/include/uapi/asm/amd_hsmp.h?h=review-ilpo
+            https://git.kernel.org/pub/scm/linux/kernel/git/pdx86/platform-drivers-x86.git/plain/arch/x86/include/uapi/asm/amd_hsmp.h
             ${PROJECT_SOURCE_DIR}/esmi_ib_library/include/asm/amd_hsmp.h)
     endif()
     add_definitions("-DENABLE_ESMI_LIB=1")
@@ -185,9 +192,10 @@ if(BUILD_TESTS)
     set(TESTS_COMPONENT "tests")
     #add_subdirectory("tests/rocm_smi_test")
     add_subdirectory("tests/amd_smi_test")
+    add_subdirectory("tests/python_unittest")
 endif()
 
-# python interface and CLI depend on shared libraries
+# python interface, CLI, and py-test depend on shared libraries
 if(BUILD_SHARED_LIBS)
     add_subdirectory("py-interface")
     if(BUILD_CLI)
@@ -205,7 +213,7 @@ configure_package_config_file(
 write_basic_package_version_file(
     ${CMAKE_CURRENT_BINARY_DIR}/amd_smi-config-version.cmake
     VERSION
-    "${AMD_SMI_LIBS_TARGET_VERSION_MAJOR}.${AMD_SMI_LIBS_TARGET_VERSION_MINOR}.${AMD_SMI_LIBS_TARGET_VERSION_PATCH}"
+    "${CPACK_PACKAGE_VERSION}"
     COMPATIBILITY SameMajorVersion)
 
 install(
@@ -229,7 +237,7 @@ install(
     COMPONENT dev)
 
 #License file
-set(CPACK_RPM_PACKAGE_LICENSE "NCSA")
+set(CPACK_RPM_PACKAGE_LICENSE "MIT")
 # install license file in share/doc/amd_smi-asan folder
 install(
     FILES ${CPACK_RESOURCE_FILE_LICENSE}
@@ -249,13 +257,13 @@ install(
     DESTINATION share/doc/${AMD_SMI}
     COMPONENT dev)
 
+# Make for goamdsmi_shim library
+add_subdirectory(goamdsmi_shim)
+
 #Debian package specific variables
-set(CPACK_DEBIAN_PACKAGE_PROVIDES "amd-smi")
 set(CPACK_DEBIAN_PACKAGE_RECOMMENDS "python3-argcomplete, libdrm-dev, python3-yaml")
 set(CPACK_DEBIAN_ASAN_PACKAGE_RECOMMENDS ${CPACK_DEBIAN_PACKAGE_RECOMMENDS})
 set(CPACK_DEBIAN_DEV_PACKAGE_RECOMMENDS ${CPACK_DEBIAN_PACKAGE_RECOMMENDS})
-set(CPACK_DEBIAN_ASAN_PACKAGE_PROVIDES "${AMD_SMI_PACKAGE}-asan")
-set(CPACK_DEBIAN_DEV_PACKAGE_PROVIDES "${AMD_SMI_PACKAGE}")
 set(CPACK_DEBIAN_PACKAGE_DEPENDS "sudo, python3 (>= 3.6.8), python3-pip")
 set(CPACK_DEBIAN_ASAN_PACKAGE_DEPENDS ${CPACK_DEBIAN_PACKAGE_DEPENDS})
 set(CPACK_DEBIAN_DEV_PACKAGE_DEPENDS ${CPACK_DEBIAN_PACKAGE_DEPENDS})
@@ -272,9 +280,6 @@ set(CPACK_RPM_EXCLUDE_FROM_AUTO_FILELIST_ADDITION
 if(CPACK_RPM_PACKAGE_RELEASE)
     set(CPACK_RPM_PACKAGE_RELEASE_DIST ON)
 endif()
-set(CPACK_RPM_PACKAGE_PROVIDES "amd-smi")
-set(CPACK_RPM_DEV_PACKAGE_PROVIDES "${AMD_SMI_PACKAGE}")
-set(CPACK_RPM_ASAN_PACKAGE_PROVIDES "${AMD_SMI_PACKAGE}-asan")
 # NOTE: RPM SUGGESTS DO NOT WORK! https://bugzilla.redhat.com/show_bug.cgi?id=1811358
 set(CPACK_RPM_PACKAGE_SUGGESTS "python3-argcomplete")
 set(CPACK_RPM_DEV_PACKAGE_SUGGESTS ${CPACK_RPM_PACKAGE_SUGGESTS})

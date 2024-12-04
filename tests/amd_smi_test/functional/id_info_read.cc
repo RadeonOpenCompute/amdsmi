@@ -3,7 +3,7 @@
  * The University of Illinois/NCSA
  * Open Source License (NCSA)
  *
- * Copyright (c) 2023, Advanced Micro Devices, Inc.
+ * Copyright (c) 2024, Advanced Micro Devices, Inc.
  * All rights reserved.
  *
  * Developed by:
@@ -123,8 +123,8 @@ void TestIdInfoRead::Run(void) {
     }
 
        // vendor_id, unique_id
-    amdsmi_asic_info_t asci_info;
-    err = amdsmi_get_gpu_asic_info(processor_handles_[0], &asci_info);
+    amdsmi_asic_info_t asic_info;
+    err = amdsmi_get_gpu_asic_info(processor_handles_[0], &asic_info);
     CHK_ERR_ASRT(err)
 
     // device name, brand, serial_number
@@ -154,8 +154,14 @@ void TestIdInfoRead::Run(void) {
           << vram_info.vram_type << std::endl;
       std::cout << "\t**Device Vram vendor id: "
           << vram_info.vram_vendor << std::endl;
-      std::cout << "\t**Device Vram size: "
-          << vram_info.vram_size << std::endl;
+      std::cout << "\t**Device Vram size: 0x"
+          << std::hex << vram_info.vram_size
+          << " (" << std::dec << vram_info.vram_size << ")"
+          << std::endl;
+      std::cout << "\t**Device Bit Width: 0x"
+          << std::hex << vram_info.vram_bit_width
+          << " (" << std::dec << vram_info.vram_bit_width << ")"
+          << std::endl;
     }
 
     err = amdsmi_get_gpu_vendor_name(processor_handles_[i], buffer, kBufferLen);
@@ -209,7 +215,7 @@ void TestIdInfoRead::Run(void) {
 
     IF_VERB(STANDARD) {
         std::cout << "\t**Sub-system Vendor ID: 0x" << std::hex <<
-                                            asci_info.subvendor_id << std::endl;
+                                            asic_info.subvendor_id << std::endl;
     }
 
     err = amdsmi_get_gpu_vendor_name(processor_handles_[i], buffer, kBufferLen);

@@ -1,4 +1,4 @@
-/* * Copyright (C) 2023 Advanced Micro Devices. All rights reserved.
+/* * Copyright (C) 2024 Advanced Micro Devices. All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy of
  * this software and associated documentation files (the "Software"), to deal in
@@ -218,7 +218,7 @@ amdsmi_status_t smi_amdgpu_get_power_cap(amd::smi::AMDSmiGPUDevice* device, int 
     if (!device->check_if_drm_is_supported()) {
         return AMDSMI_STATUS_NOT_SUPPORTED;
     }
-    constexpr int DATA_SIZE = 10;
+    constexpr int DATA_SIZE = 16;
     char val[DATA_SIZE];
     std::string fullpath;
     amdsmi_status_t ret = AMDSMI_STATUS_SUCCESS;
@@ -576,7 +576,15 @@ amdsmi_status_t smi_amdgpu_get_market_name_from_dev_id(uint32_t device_id, char 
             break;
         case 0x74a1:
         case 0x74b5:
-            strcpy(market_name, "MI300X-O");
+            strcpy(market_name, "AMD Instinct MI300X");
+            break;
+        case 0x74a2:
+        case 0x74b6:
+            strcpy(market_name, "MI308X");
+            break;
+        case 0x74a9:
+        case 0x74bd:
+            strcpy(market_name, "AMD Instinct MI300X HF");
             break;
         case 0x74a2:
         case 0x74b6:
@@ -623,3 +631,36 @@ amdsmi_status_t smi_amdgpu_is_gpu_power_management_enabled(amd::smi::AMDSmiGPUDe
     *enabled = false;
     return AMDSMI_STATUS_SUCCESS;
 }
+
+std::string smi_amdgpu_split_string(std::string str, char delim) {
+  std::vector<std::string> tokens;
+  std::stringstream ss(str);
+  std::string token;
+
+  if (str.empty()) {
+    return "";
+  }
+
+  while (std::getline(ss, token, delim)) {
+    tokens.push_back(token);
+    return token;  // return 1st match
+  }
+}
+
+// wrapper to return string expression of a rsmi_status_t return
+// rsmi_status_t ret - return value of RSMI API function
+// bool fullStatus - defaults to true, set to false to chop off description
+// Returns:
+// string - if fullStatus == true, returns full decription of return value
+//      ex. 'RSMI_STATUS_SUCCESS: The function has been executed successfully.'
+// string - if fullStatus == false, returns a minimalized return value
+//      ex. 'RSMI_STATUS_SUCCESS'
+std::string smi_amdgpu_get_status_string(amdsmi_status_t ret, bool fullStatus = true) {
+  const char *err_str;
+  amdsmi_status_code_to_string(ret, &err_str);
+  if (!fullStatus) {
+    return smi_amdgpu_split_string(std::string(err_str), ':');
+  }
+  return std::string(err_str);
+}
+

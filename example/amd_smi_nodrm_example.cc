@@ -3,7 +3,7 @@
  * The University of Illinois/NCSA
  * Open Source License (NCSA)
  *
- * Copyright (c) 2023, Advanced Micro Devices, Inc.
+ * Copyright (c) 2024, Advanced Micro Devices, Inc.
  * All rights reserved.
  *
  * Developed by:
@@ -61,7 +61,7 @@
             const char *err_str;                                               \
             std::cout << "AMDSMI call returned " << RET << " at line "         \
                       << __LINE__ << std::endl;                                \
-            amdsmi_status_code_to_string(RET, &err_str);                               \
+            amdsmi_status_code_to_string(RET, &err_str);                       \
             std::cout << err_str << std::endl;                                 \
             return RET;                                                        \
         }                                                                      \
@@ -151,7 +151,8 @@ int main() {
             printf("\tVendorID: 0x%x\n", asic_info.vendor_id);
             printf("\tRevisionID: 0x%x\n", asic_info.rev_id);
             printf("\tAsic serial: 0x%s\n", asic_info.asic_serial);
-            printf("\tOAM id: 0x%x\n\n", asic_info.oam_id);
+            printf("\tOAM id: 0x%x\n", asic_info.oam_id);
+            printf("\tNum of Computes: %d\n\n", asic_info.num_of_compute_units);
 
             // Get VBIOS info
             amdsmi_vbios_info_t vbios_info = {};
@@ -261,8 +262,10 @@ int main() {
             char bad_page_status_names[3][15] = {"RESERVED", "PENDING",
                                                  "UNRESERVABLE"};
             uint32_t num_pages = 0;
+            std::vector<amdsmi_retired_page_record_t> bad_page_info(num_pages);
             ret = amdsmi_get_gpu_bad_page_info(processor_handles[j], &num_pages,
-                                           nullptr);
+                                           bad_page_info.data());
+            std::cout << "num_pages = " << num_pages << "\n";
             CHK_AMDSMI_RET(ret)
             printf("    Output of amdsmi_get_gpu_bad_page_info:\n");
             if (!num_pages) {
@@ -341,6 +344,35 @@ int main() {
                 for (int x=0; x < policy.num_supported; x++) {
                     std::cout << x <<": (" << policy.policies[x].policy_id
                     <<"," << policy.policies[x].policy_description << ")\n";
+                }
+            }
+
+            // Get nearest GPUs
+            char *topology_link_type_str[] = {
+                "AMDSMI_LINK_TYPE_INTERNAL",
+                "AMDSMI_LINK_TYPE_XGMI",
+                "AMDSMI_LINK_TYPE_PCIE",
+                "AMDSMI_LINK_TYPE_NOT_APPLICABLE",
+                "AMDSMI_LINK_TYPE_UNKNOWN",
+            };
+            printf("\tOutput of amdsmi_get_link_topology_nearest:\n");
+            for (uint32_t topo_link_type = AMDSMI_LINK_TYPE_INTERNAL; topo_link_type <= AMDSMI_LINK_TYPE_UNKNOWN; topo_link_type++) {
+                auto topology_nearest_info = amdsmi_topology_nearest_t();
+                ret = amdsmi_get_link_topology_nearest(processor_handles[j],
+                                                       static_cast<amdsmi_link_type_t>(topo_link_type),
+                                                       nullptr);
+                CHK_AMDSMI_RET(ret);
+                ret = amdsmi_get_link_topology_nearest(processor_handles[j],
+                                                       static_cast<amdsmi_link_type_t>(topo_link_type),
+                                                       &topology_nearest_info);
+                CHK_AMDSMI_RET(ret);
+                printf("\tNearest GPUs found at %s\n", topology_link_type_str[topo_link_type]);
+                for (uint32_t k = 0; k < topology_nearest_info.count; k++) {
+                    amdsmi_bdf_t bdf = {};
+                    ret = amdsmi_get_gpu_device_bdf(topology_nearest_info.processor_list[k], &bdf);
+                    CHK_AMDSMI_RET(ret)
+                    printf("\tGPU BDF %04lx:%02x:%02x.%d\n", bdf.domain_number,
+                        bdf.bus_number, bdf.device_number, bdf.function_number);
                 }
             }
         }

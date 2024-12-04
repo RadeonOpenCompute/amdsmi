@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 #
-# Copyright (C) 2023 Advanced Micro Devices. All rights reserved.
+# Copyright (C) 2024 Advanced Micro Devices. All rights reserved.
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy of
 # this software and associated documentation files (the "Software"), to deal in
@@ -27,9 +27,18 @@ import time
 from typing import Dict
 from enum import Enum
 import yaml
+import inspect
 
 from amdsmi_helpers import AMDSMIHelpers
 import amdsmi_cli_exceptions
+
+### Custom YAML Functions
+# Dumper class to preserve order of yaml.dump
+class CustomDumper(yaml.Dumper):
+    def represent_dict_preserve_order(self, data):
+        return self.represent_dict(data.items())
+def has_sort_keys_option(): # to check if sort_keys is available
+    return 'sort_keys' in inspect.signature(yaml.dump).parameters
 
 class AMDSMILogger():
     def __init__(self, format='human_readable', destination='stdout') -> None:
@@ -121,7 +130,7 @@ class AMDSMILogger():
                 table_values += string_value.rjust(7)
             elif key in ('gfx_clock', 'mem_clock', 'encoder_clock', 'decoder_clock', 'vram_used'):
                 table_values += string_value.rjust(11)
-            elif key == 'vram_total' or 'ecc' in key:
+            elif key == 'vram_total' or 'ecc' in key or key == 'pcie_bw':
                 table_values += string_value.rjust(12)
             elif key in ['pcie_replay']:
                 table_values += string_value.rjust(13)
@@ -141,8 +150,32 @@ class AMDSMILogger():
                 table_values += string_value.ljust(14)
             elif key == "link_type":
                 table_values += string_value.ljust(10)
+            elif key == "memory":
+                table_values += string_value.ljust(8)
+            elif key == "accelerator_type":
+                table_values += string_value.ljust(18)
+            elif key == "partition_id":
+                table_values += string_value.ljust(14)
+            elif key == "accelerator_profile_index":
+                table_values += string_value.ljust(27)
+            elif key == "profile_index":
+                table_values += string_value.ljust(15)
+            elif key == "memory_partition_caps":
+                table_values += string_value.ljust(23)
+            elif key == "num_partitions":
+                table_values += string_value.ljust(16)
+            elif key == "num_resources":
+                table_values += string_value.ljust(15)
+            elif key == "resource_index":
+                table_values += string_value.ljust(16)
+            elif key == "resource_type":
+                table_values += string_value.ljust(15)
+            elif key == "resource_instances":
+                table_values += string_value.ljust(20)
+            elif key == "resources_shared":
+                table_values += string_value.ljust(18)
             elif key == "RW":
-                table_values += " " + string_value.ljust(52)
+                table_values += string_value.ljust(52)
             elif key == "process_list":
                 #Add an additional padding between the first instance of GPU and NAME
                 table_values += '  '
@@ -202,8 +235,14 @@ class AMDSMILogger():
         capitalized_json["AMDSMI_SPACING_REMOVAL"] = tabbed_dictionary
 
         json_string = json.dumps(capitalized_json, indent=4)
-        yaml_data = yaml.safe_load(json_string)
-        yaml_output = yaml.dump(yaml_data, sort_keys=False, allow_unicode=True)
+
+        if has_sort_keys_option():
+            yaml_data = yaml.safe_load(json_string)
+            yaml_output = yaml.dump(yaml_data, sort_keys=False, allow_unicode=True)
+        else:
+            CustomDumper.add_representer(dict, CustomDumper.represent_dict_preserve_order)
+            yaml_data = yaml.safe_load(json_string)
+            yaml_output = yaml.dump(yaml_data, Dumper=CustomDumper, allow_unicode=True, default_flow_style=False)
 
         # Remove a key line if it is a spacer
         yaml_output = yaml_output.replace("AMDSMI_SPACING_REMOVAL:\n", "")

@@ -3,7 +3,7 @@
  * The University of Illinois/NCSA
  * Open Source License (NCSA)
  *
- * Copyright (c) 2017-2023, Advanced Micro Devices, Inc.
+ * Copyright (c) 2017-2024, Advanced Micro Devices, Inc.
  * All rights reserved.
  *
  * Developed by:
@@ -182,6 +182,7 @@ enum DevInfoTypes {
   kDevAvailableComputePartition,
   kDevComputePartition,
   kDevMemoryPartition,
+  kDevAvailableMemoryPartition,
 
   // The information read from pci core sysfs
   kDevPCieTypeStart = 1000,
@@ -225,7 +226,6 @@ class Device {
     void set_drm_render_minor(uint32_t minor) {drm_render_minor_ = minor;}
     static rsmi_dev_perf_level perfLvlStrToEnum(std::string s);
     uint64_t bdfid(void) const {return bdfid_;}
-    int get_partition_id() const {return (bdfid_ >> 28) & 0xf; }  // location_id[31:28]
     void set_bdfid(uint64_t val) {bdfid_ = val;}
     pthread_mutex_t *mutex(void) {return mutex_.ptr;}
     evt::dev_evt_grp_set_t* supported_event_groups(void) {
@@ -246,6 +246,8 @@ class Device {
     bool DeviceAPISupported(std::string name, uint64_t variant,
                                                         uint64_t sub_variant);
     rsmi_status_t restartAMDGpuDriver(void);
+    rsmi_status_t isRestartInProgress(bool *isRestartInProgress,
+                                      bool *isAMDGPUModuleLive);
     rsmi_status_t storeDevicePartitions(uint32_t dv_ind);
     template <typename T> std::string readBootPartitionState(uint32_t dv_ind);
     rsmi_status_t check_amdgpu_property_reinforcement_query(uint32_t dev_idx, AMDGpuVerbTypes_t verb_type);
@@ -261,6 +263,8 @@ class Device {
     AMGpuMetricsPublicLatestTupl_t dev_copy_internal_to_external_metrics();
 
     static const std::map<DevInfoTypes, const char*> devInfoTypesStrings;
+    void set_smi_device_id(uint32_t device_id) { m_device_id = device_id; }
+    void set_smi_partition_id(uint32_t partition_id) { m_partition_id = partition_id; }
     static const char* get_type_string(DevInfoTypes type);
 
  private:
@@ -298,6 +302,8 @@ class Device {
     GpuMetricsBasePtr m_gpu_metrics_ptr;
     AMDGpuMetricsHeader_v1_t m_gpu_metrics_header;
     uint64_t m_gpu_metrics_updated_timestamp;
+    uint32_t m_device_id;
+    uint32_t m_partition_id;
 };
 
 

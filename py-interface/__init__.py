@@ -1,5 +1,5 @@
 #
-# Copyright (C) 2023 Advanced Micro Devices. All rights reserved.
+# Copyright (C) 2024 Advanced Micro Devices. All rights reserved.
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy of
 # this software and associated documentation files (the "Software"), to deal in
@@ -89,6 +89,7 @@ from .amdsmi_interface import amdsmi_get_gpu_driver_info
 
 # # ASIC and Bus Static Information
 from .amdsmi_interface import amdsmi_get_gpu_asic_info
+from .amdsmi_interface import amdsmi_get_gpu_kfd_info
 from .amdsmi_interface import amdsmi_get_power_cap_info
 from .amdsmi_interface import amdsmi_get_gpu_vram_info
 from .amdsmi_interface import amdsmi_get_gpu_cache_info
@@ -105,6 +106,7 @@ from .amdsmi_interface import amdsmi_get_clock_info
 
 from .amdsmi_interface import amdsmi_get_pcie_info
 from .amdsmi_interface import amdsmi_get_gpu_bad_page_info
+from .amdsmi_interface import amdsmi_get_violation_status
 
 # # Process Information
 from .amdsmi_interface import amdsmi_get_gpu_process_list
@@ -124,6 +126,7 @@ from .amdsmi_interface import amdsmi_set_gpu_pci_bandwidth
 from .amdsmi_interface import amdsmi_set_power_cap
 from .amdsmi_interface import amdsmi_set_gpu_power_profile
 from .amdsmi_interface import amdsmi_set_gpu_clk_range
+from .amdsmi_interface import amdsmi_set_gpu_clk_limit
 from .amdsmi_interface import amdsmi_set_gpu_od_clk_info
 from .amdsmi_interface import amdsmi_set_gpu_od_volt_info
 from .amdsmi_interface import amdsmi_set_gpu_perf_level
@@ -150,6 +153,7 @@ from .amdsmi_interface import amdsmi_get_gpu_volt_metric
 from .amdsmi_interface import amdsmi_get_utilization_count
 from .amdsmi_interface import amdsmi_get_gpu_perf_level
 from .amdsmi_interface import amdsmi_get_gpu_overdrive_level
+from .amdsmi_interface import amdsmi_get_gpu_mem_overdrive_level
 from .amdsmi_interface import amdsmi_get_clk_freq
 from .amdsmi_interface import amdsmi_get_gpu_od_volt_info
 from .amdsmi_interface import amdsmi_get_gpu_metrics_info
@@ -210,16 +214,17 @@ from .amdsmi_interface import amdsmi_topo_get_numa_node_number
 from .amdsmi_interface import amdsmi_topo_get_link_weight
 from .amdsmi_interface import amdsmi_get_minmax_bandwidth_between_processors
 from .amdsmi_interface import amdsmi_topo_get_link_type
+from .amdsmi_interface import amdsmi_topo_get_p2p_status
 from .amdsmi_interface import amdsmi_is_P2P_accessible
 from .amdsmi_interface import amdsmi_get_xgmi_info
+from .amdsmi_interface import amdsmi_get_link_topology_nearest
 
 # # Partition Functions
 from .amdsmi_interface import amdsmi_get_gpu_compute_partition
 from .amdsmi_interface import amdsmi_set_gpu_compute_partition
-from .amdsmi_interface import amdsmi_reset_gpu_compute_partition
 from .amdsmi_interface import amdsmi_get_gpu_memory_partition
 from .amdsmi_interface import amdsmi_set_gpu_memory_partition
-from .amdsmi_interface import amdsmi_reset_gpu_memory_partition
+from .amdsmi_interface import amdsmi_get_gpu_accelerator_partition_profile
 
 # # Individual GPU Metrics Functions
 from .amdsmi_interface import amdsmi_get_gpu_metrics_header_info
@@ -250,6 +255,7 @@ from .amdsmi_interface import AmdSmiFreqInd
 from .amdsmi_interface import AmdSmiXgmiStatus
 from .amdsmi_interface import AmdSmiMemoryPageStatus
 from .amdsmi_interface import AmdSmiIoLinkType
+from .amdsmi_interface import AmdSmiLinkType
 from .amdsmi_interface import AmdSmiUtilizationCounterType
 from .amdsmi_interface import AmdSmiProcessorType
 

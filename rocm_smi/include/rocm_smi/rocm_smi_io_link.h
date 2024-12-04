@@ -3,7 +3,7 @@
  * The University of Illinois/NCSA
  * Open Source License (NCSA)
  *
- * Copyright (c) 2020, Advanced Micro Devices, Inc.
+ * Copyright (c) 2024, Advanced Micro Devices, Inc.
  * All rights reserved.
  *
  * Developed by:
@@ -82,10 +82,19 @@ typedef enum _LINK_DIRECTORY_TYPE {
   P2P_LINK_DIRECTORY         = 1
 } LINK_DIRECTORY_TYPE;
 
+enum class IOLinkDirectionType_t
+{
+    kNonDirectional = 0,
+    kUniDirectional = 1,
+    kBiDirectional = 2,
+};
+
+
 class IOLink {
  public:
     explicit IOLink(uint32_t node_indx, uint32_t link_indx, LINK_DIRECTORY_TYPE link_dir_type) :
-                    node_indx_(node_indx), link_indx_(link_indx), link_dir_type_(link_dir_type) {}
+                    node_indx_(node_indx), link_indx_(link_indx), link_dir_type_(link_dir_type),
+                    link_cap_{UINT8_MAX, UINT8_MAX, UINT8_MAX, UINT8_MAX, UINT8_MAX} {}
     ~IOLink();
 
     int Initialize();
@@ -96,24 +105,32 @@ class IOLink {
     IO_LINK_TYPE type(void) const {return type_;}
     uint32_t node_from(void) const {return node_from_;}
     uint32_t node_to(void) const {return node_to_;}
+    uint32_t flag(void) const {return flags_;}
     uint64_t weight(void) const {return weight_;}
     LINK_DIRECTORY_TYPE get_directory_type(void) const {return link_dir_type_;}
     uint64_t min_bandwidth(void) const {return min_bandwidth_;}
     uint64_t max_bandwidth(void) const {return max_bandwidth_;}
+    const rsmi_p2p_capability_t& get_link_capability(void) const {return link_cap_;}
 
-
+ protected:
+    virtual int UpdateP2pCapability(void);
  private:
     uint32_t node_indx_;
     uint32_t link_indx_;
     IO_LINK_TYPE type_;
     uint32_t node_from_;
     uint32_t node_to_;
+    uint32_t flags_;
     uint64_t weight_;
     uint64_t min_bandwidth_;
     uint64_t max_bandwidth_;
     std::map<std::string, uint64_t> properties_;
     LINK_DIRECTORY_TYPE link_dir_type_;
+    rsmi_p2p_capability_t link_cap_;
 };
+
+using IOLinksPerNodeList_t = std::map<uint32_t, std::shared_ptr<IOLink>>;
+using IOLinksPerNodeListPtr_t = IOLinksPerNodeList_t*;
 
 int
 DiscoverIOLinksPerNode(uint32_t node_indx, std::map<uint32_t,
@@ -130,6 +147,10 @@ DiscoverIOLinks(std::map<std::pair<uint32_t, uint32_t>,
 int
 DiscoverP2PLinks(std::map<std::pair<uint32_t, uint32_t>,
                  std::shared_ptr<IOLink>> *links);
+
+IOLinkDirectionType_t DiscoverIOLinkPerNodeDirection(uint32_t src_node_idx,
+                                                     uint32_t dst_node_idx);
+
 
 }  // namespace smi
 }  // namespace amd

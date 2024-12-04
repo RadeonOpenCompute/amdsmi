@@ -3,7 +3,7 @@
  * The University of Illinois/NCSA
  * Open Source License (NCSA)
  *
- * Copyright (c) 2017-2023, Advanced Micro Devices, Inc.
+ * Copyright (c) 2017-2024, Advanced Micro Devices, Inc.
  * All rights reserved.
  *
  * Developed by:
@@ -140,6 +140,7 @@ static const char *kDevAvailableComputePartitionFName =
                   "available_compute_partition";
 static const char *kDevComputePartitionFName = "current_compute_partition";
 static const char *kDevMemoryPartitionFName = "current_memory_partition";
+static const char *kDevAvailableMemoryPartitionFName = "available_memory_partition";
 
 // Firmware version files
 static const char *kDevFwVersionAsdFName = "fw_version/asd_fw_version";
@@ -328,6 +329,7 @@ static const std::map<DevInfoTypes, const char *> kDevAttribNameMap = {
     {kDevAvailableComputePartition, kDevAvailableComputePartitionFName},
     {kDevComputePartition, kDevComputePartitionFName},
     {kDevMemoryPartition, kDevMemoryPartitionFName},
+    {kDevAvailableMemoryPartition, kDevAvailableMemoryPartitionFName},
 };
 
 static const std::map<rsmi_dev_perf_level, const char *> kDevPerfLvlMap = {
@@ -479,6 +481,7 @@ Device::devInfoTypesStrings = {
   {kDevAvailableComputePartition, "kDevAvailableComputePartition"},
   {kDevComputePartition, "kDevComputePartition"},
   {kDevMemoryPartition, "kDevMemoryPartition"},
+  {kDevAvailableMemoryPartition, "kDevAvailableMemoryPartition"},
   {kDevPCieVendorID, "kDevPCieVendorID"},
   {kDevSocPstate, "kDevSocPstate"},
   {kDevXgmiPlpd, "kDevXgmiPlpd"},
@@ -490,7 +493,7 @@ static const std::map<const char *, dev_depends_t> kDevFuncDependsMap = {
     // Functions with only mandatory dependencies
   {"rsmi_dev_vram_vendor_get",           {{kDevVramVendorFName}, {}}},
   {"rsmi_dev_id_get",                    {{kDevDevIDFName}, {}}},
-  {"rsmi_dev_oam_id_get",                {{kDevXGMIPhysicalIDFName}, {}}},
+  {"rsmi_dev_xgmi_physical_id_get",      {{kDevXGMIPhysicalIDFName}, {}}},
   {"rsmi_dev_revision_get",              {{kDevDevRevIDFName}, {}}},
   {"rsmi_dev_vendor_id_get",             {{kDevVendorIDFName}, {}}},
   {"rsmi_dev_name_get",                  {{kDevVendorIDFName,
@@ -1006,6 +1009,7 @@ const char* Device::get_type_string(DevInfoTypes type) {
   return "Unknown";
 
 }
+
 int Device::readDevInfoBinary(DevInfoTypes type, std::size_t b_size,
                                 void *p_binary_data) {
   auto sysfs_path = path_;
@@ -1043,15 +1047,17 @@ int Device::readDevInfoBinary(DevInfoTypes type, std::size_t b_size,
     LOG_ERROR(ss);
     return ENOENT;
   }
-  ss << "Successfully read DevInfoBinary for DevInfoType ("
-     << get_type_string(type) << ") - SYSFS ("
-     << sysfs_path << "), returning binaryData = " << p_binary_data
-     << "; byte_size = " << std::dec << static_cast<int>(b_size);
+  if (ROCmLogging::Logger::getInstance()->isLoggerEnabled()) {
+    ss << "Successfully read DevInfoBinary for DevInfoType ("
+       << get_type_string(type) << ") - SYSFS ("
+       << sysfs_path << "), returning binaryData = " << p_binary_data
+       << "; byte_size = " << std::dec << static_cast<int>(b_size);
 
-  std::string metricDescription = "AMD SMI GPU METRICS (16-byte width), "
+    std::string metricDescription = "AMD SMI GPU METRICS (16-byte width), "
                                   + sysfs_path;
-  logHexDump(metricDescription.c_str(), p_binary_data, b_size, 16);
-  LOG_INFO(ss);
+    logHexDump(metricDescription.c_str(), p_binary_data, b_size, 16);
+    LOG_INFO(ss);
+  }
   return 0;
 }
 
@@ -1305,6 +1311,7 @@ int Device::readDevInfo(DevInfoTypes type, std::string *val) {
     case kDevMemoryPartition:
     case kDevNumaNode:
     case kDevXGMIPhysicalID:
+    case kDevAvailableMemoryPartition:
     case kDevProcessIsolation:
       return readDevInfoStr(type, val);
       break;
@@ -1483,10 +1490,15 @@ bool Device::DeviceAPISupported(std::string name, uint64_t variant,
 
 rsmi_status_t Device::restartAMDGpuDriver(void) {
   REQUIRE_ROOT_ACCESS
+  std::ostringstream ss;
   bool restartSuccessful = true;
   bool success = false;
   std::string out;
   bool wasGdmServiceActive = false;
+  bool restartInProgress = true;
+  bool isRestartInProgress = true;
+  bool isAMDGPUModuleLive = false;
+  std::string captureRestartErr;
 
   // sudo systemctl is-active gdm
   // we do not care about the success of checking if gdm is active
@@ -1495,8 +1507,8 @@ rsmi_status_t Device::restartAMDGpuDriver(void) {
                          (restartSuccessful = true);
 
   // if gdm is active -> sudo systemctl stop gdm
-  // TODO: are are there other display manager's we need to take into account?
-  // see https://en.wikipedia.org/wiki/GNOME_Display_Manager
+  // TODO(AMD_SMI_team): are are there other display manager's we need to take into account?
+  // see https://help.gnome.org/admin/gdm/stable/overview.html.en_GB
   if (success && (out == "active")) {
     wasGdmServiceActive = true;
     std::tie(success, out) = executeCommand("systemctl stop gdm&", false);
@@ -1506,8 +1518,13 @@ rsmi_status_t Device::restartAMDGpuDriver(void) {
   // sudo modprobe -r amdgpu
   // sudo modprobe amdgpu
   std::tie(success, out) =
-    executeCommand("modprobe -r amdgpu && modprobe amdgpu&", false);
+    executeCommand("modprobe -r amdgpu && modprobe amdgpu&", true);
   restartSuccessful &= success;
+  captureRestartErr = out;
+
+  if (success) {
+    restartSuccessful = false;
+  }
 
   // if gdm was active -> sudo systemctl start gdm
   if (wasGdmServiceActive) {
@@ -1515,7 +1532,61 @@ rsmi_status_t Device::restartAMDGpuDriver(void) {
     restartSuccessful &= success;
   }
 
-  return (restartSuccessful ? RSMI_STATUS_SUCCESS :
+  // Return early if there was an issue restarting amdgpu
+  if (!restartSuccessful) {
+    ss << __PRETTY_FUNCTION__ << " | [WARNING] Issue found during amdgpu restart: "
+    << captureRestartErr << "; retartSuccessful: " << (restartSuccessful ? "True" : "False");
+    LOG_INFO(ss);
+    return RSMI_STATUS_AMDGPU_RESTART_ERR;
+  }
+
+  // wait for amdgpu module to come back up
+  rsmi_status_t status = Device::isRestartInProgress(&isRestartInProgress,
+                                                    &isAMDGPUModuleLive);
+  const int kTimeToWaitForDriverMSec = 1000;
+  int maxLoops = 10;  // wait a max of 10 sec
+  while (status != RSMI_STATUS_SUCCESS) {
+    maxLoops -= 1;
+    if (maxLoops == 0) {
+      break;
+    }
+    amd::smi::system_wait(kTimeToWaitForDriverMSec);
+    status = Device::isRestartInProgress(&isRestartInProgress,
+                                         &isAMDGPUModuleLive);
+  }
+
+  return ((restartSuccessful && (!isRestartInProgress && isAMDGPUModuleLive)) ?
+          RSMI_STATUS_SUCCESS :
+          RSMI_STATUS_AMDGPU_RESTART_ERR);
+}
+
+rsmi_status_t Device::isRestartInProgress(bool *isRestartInProgress,
+                                          bool *isAMDGPUModuleLive) {
+  REQUIRE_ROOT_ACCESS
+  std::ostringstream ss;
+  bool restartSuccessful = true;
+  bool success = false;
+  std::string out;
+  bool deviceRestartInProgress = true;    // Assume in progress, we intend to disprove
+  bool isSystemAMDGPUModuleLive = false;  // Assume AMD GPU module is not live,
+                                          //  we intend to disprove
+
+  // wait for amdgpu module to come back up
+  std::tie(success, out) = executeCommand("cat /sys/module/amdgpu/initstate", true);
+  ss << __PRETTY_FUNCTION__
+     << " | success = " << success
+     << " | out = " << out;
+  LOG_DEBUG(ss);
+  if ((success == true) && (!out.empty())) {
+    isSystemAMDGPUModuleLive = containsString(out, "live");
+  }
+  if (isAMDGPUModuleLive) {
+    deviceRestartInProgress = false;
+  }
+  *isRestartInProgress = deviceRestartInProgress;
+  *isAMDGPUModuleLive = isSystemAMDGPUModuleLive;
+
+  return ((*isAMDGPUModuleLive && !*isRestartInProgress) ? RSMI_STATUS_SUCCESS :
           RSMI_STATUS_AMDGPU_RESTART_ERR);
 }
 

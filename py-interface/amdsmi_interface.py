@@ -1,5 +1,5 @@
 #
-# Copyright (C) 2023 Advanced Micro Devices. All rights reserved.
+# Copyright (C) 2024 Advanced Micro Devices. All rights reserved.
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy of
 # this software and associated documentation files (the "Software"), to deal in
@@ -42,6 +42,8 @@ AMDSMI_MAX_NUM_GFX_CLKS = 8
 AMDSMI_MAX_AID = 4
 AMDSMI_MAX_ENGINES = 8
 AMDSMI_MAX_NUM_JPEG = 32
+AMDSMI_MAX_NUM_XCC = 8
+AMDSMI_MAX_NUM_XCP = 8
 
 # Max number of DPM policies
 AMDSMI_MAX_NUM_PM_POLICIES = 32
@@ -383,9 +385,21 @@ class AmdSmiIoLinkType(IntEnum):
     SIZE = amdsmi_wrapper.AMDSMI_IOLINK_TYPE_SIZE
 
 
+class AmdSmiLinkType(IntEnum):
+    AMDSMI_LINK_TYPE_INTERNAL = amdsmi_wrapper.AMDSMI_LINK_TYPE_INTERNAL
+    AMDSMI_LINK_TYPE_XGMI = amdsmi_wrapper.AMDSMI_LINK_TYPE_XGMI
+    AMDSMI_LINK_TYPE_PCIE = amdsmi_wrapper.AMDSMI_LINK_TYPE_PCIE
+    AMDSMI_LINK_TYPE_NOT_APPLICABLE = amdsmi_wrapper.AMDSMI_LINK_TYPE_NOT_APPLICABLE
+    AMDSMI_LINK_TYPE_UNKNOWN = amdsmi_wrapper.AMDSMI_LINK_TYPE_UNKNOWN
+
+
 class AmdSmiUtilizationCounterType(IntEnum):
     COARSE_GRAIN_GFX_ACTIVITY = amdsmi_wrapper.AMDSMI_COARSE_GRAIN_GFX_ACTIVITY
     COARSE_GRAIN_MEM_ACTIVITY = amdsmi_wrapper.AMDSMI_COARSE_GRAIN_MEM_ACTIVITY
+    COARSE_DECODER_ACTIVITY = amdsmi_wrapper.AMDSMI_COARSE_DECODER_ACTIVITY
+    FINE_GRAIN_GFX_ACTIVITY = amdsmi_wrapper.AMDSMI_FINE_GRAIN_GFX_ACTIVITY
+    FINE_GRAIN_MEM_ACTIVITY = amdsmi_wrapper.AMDSMI_FINE_GRAIN_MEM_ACTIVITY
+    FINE_DECODER_ACTIVITY = amdsmi_wrapper.AMDSMI_FINE_DECODER_ACTIVITY
     UTILIZATION_COUNTER_FIRST = amdsmi_wrapper.AMDSMI_UTILIZATION_COUNTER_FIRST
     UTILIZATION_COUNTER_LAST = amdsmi_wrapper.AMDSMI_UTILIZATION_COUNTER_LAST
 
@@ -396,6 +410,14 @@ class AmdSmiProcessorType(IntEnum):
     AMDSMI_PROCESSOR_TYPE_AMD_CPU = amdsmi_wrapper.AMDSMI_PROCESSOR_TYPE_AMD_CPU
     AMDSMI_PROCESSOR_TYPE_NON_AMD_GPU = amdsmi_wrapper.AMDSMI_PROCESSOR_TYPE_NON_AMD_GPU
     AMDSMI_PROCESSOR_TYPE_NON_AMD_CPU = amdsmi_wrapper.AMDSMI_PROCESSOR_TYPE_NON_AMD_CPU
+
+
+class AmdSmiRegType(IntEnum):
+    XGMI = amdsmi_wrapper.AMDSMI_REG_XGMI
+    WAFL = amdsmi_wrapper.AMDSMI_REG_WAFL
+    PCIE = amdsmi_wrapper.AMDSMI_REG_PCIE
+    USR = amdsmi_wrapper.AMDSMI_REG_USR
+    USR1 = amdsmi_wrapper.AMDSMI_REG_USR1
 
 
 class AmdSmiEventReader:
@@ -571,7 +593,7 @@ def _make_amdsmi_bdf_from_list(bdf):
     amdsmi_bdf.struct_amdsmi_bdf_t.domain_number = bdf[0]
     return amdsmi_bdf
 
-def _padHexValue(value, length):
+def _pad_hex_value(value, length):
     """ Pad a hexadecimal value with a given length of zeros
 
     :param value: A hexadecimal value to be padded with zeros
@@ -585,6 +607,34 @@ def _padHexValue(value, length):
         # Pad with zeros after '0x' prefix
         return '0x' + value[2:].zfill(length)
     return value
+
+class MaxUIntegerTypes(IntEnum):
+    UINT8_T  = 0xFF
+    UINT16_T = 0xFFFF
+    UINT32_T = 0xFFFFFFFF
+    UINT64_T = 0xFFFFFFFFFFFFFFFF
+
+def _validate_if_max_uint(value, uint_type: MaxUIntegerTypes, isActivity=False, isBool=False):
+    return_val = "N/A"
+    if not isinstance(value, list):
+        if (value == uint_type) or (isActivity and value > 100):
+            return return_val
+        else:
+            if isBool:
+                return bool(value)
+            else:
+               return value
+    else:
+        return_val = []
+        for _, v in enumerate(value):
+            if (v == uint_type) or (isActivity and v > 100):
+                return_val.append("N/A")
+            else:
+                return_val.append(v)
+    if isBool:
+        return bool(return_val)
+    else:
+        return return_val
 
 
 def amdsmi_get_socket_handles() -> List[amdsmi_wrapper.amdsmi_socket_handle]:
@@ -626,36 +676,22 @@ def amdsmi_get_cpusocket_handles() -> List[amdsmi_wrapper.amdsmi_socket_handle]:
     Returns:
         `List`: List containing all of the found cpu socket handles.
     """
-    socket_handles = amdsmi_get_socket_handles()
-    cpu_handles = []
-    type = amdsmi_wrapper.AMDSMI_PROCESSOR_TYPE_AMD_CPU
-    for socket in socket_handles:
-        cpu_count = ctypes.c_uint32()
-        null_ptr = ctypes.POINTER(amdsmi_wrapper.amdsmi_processor_handle)()
-        _check_res(
-            amdsmi_wrapper.amdsmi_get_processor_handles_by_type(
-                socket,
-                type,
-                null_ptr,
-                ctypes.byref(cpu_count),
-            )
-        )
-        processor_handles = (
-            amdsmi_wrapper.amdsmi_processor_handle * cpu_count.value)()
-        _check_res(
-            amdsmi_wrapper.amdsmi_get_processor_handles_by_type(
-                socket,
-                type,
-                processor_handles,
-                ctypes.byref(cpu_count)
-            )
-        )
-        cpu_handles.extend(
-            [
-                amdsmi_wrapper.amdsmi_processor_handle(processor_handles[dev_idx])
-                for dev_idx in range(cpu_count.value)
-            ]
-        )
+    cpu_count = ctypes.c_uint32(0)
+    null_ptr = ctypes.POINTER(amdsmi_wrapper.amdsmi_processor_handle)()
+    _check_res(
+        amdsmi_wrapper.amdsmi_get_cpu_handles(
+            ctypes.byref(cpu_count), null_ptr)
+    )
+    proc_handles = (amdsmi_wrapper.amdsmi_processor_handle *
+                      cpu_count.value)()
+    _check_res(
+        amdsmi_wrapper.amdsmi_get_cpu_handles(
+            ctypes.byref(cpu_count), proc_handles)
+    )
+    cpu_handles = [
+        amdsmi_wrapper.amdsmi_processor_handle(proc_handles[sock_idx])
+        for sock_idx in range(cpu_count.value)
+    ]
     return cpu_handles
 
 
@@ -719,37 +755,23 @@ def amdsmi_get_processor_handles() -> List[amdsmi_wrapper.amdsmi_processor_handl
     return devices
 
 def amdsmi_get_cpucore_handles() -> List[amdsmi_wrapper.amdsmi_processor_handle]:
-    socket_handles = amdsmi_get_socket_handles()
-    core_handles = []
-    type = amdsmi_wrapper.AMDSMI_PROCESSOR_TYPE_AMD_CPU_CORE
+    cores_count = ctypes.c_uint32(0)
+    null_ptr = ctypes.POINTER(amdsmi_wrapper.amdsmi_processor_handle)()
+    _check_res(
+        amdsmi_wrapper.amdsmi_get_cpucore_handles(
+            ctypes.byref(cores_count), null_ptr)
+    )
+    proc_handles = (amdsmi_wrapper.amdsmi_processor_handle *
+                      cores_count.value)()
+    _check_res(
+        amdsmi_wrapper.amdsmi_get_cpucore_handles(
+            ctypes.byref(cores_count), proc_handles)
+    )
+    core_handles = [
+        amdsmi_wrapper.amdsmi_processor_handle(proc_handles[sock_idx])
+        for sock_idx in range(cores_count.value)
+    ]
 
-    for socket in socket_handles:
-        core_count = ctypes.c_uint32()
-        null_ptr = ctypes.POINTER(amdsmi_wrapper.amdsmi_processor_handle)()
-        _check_res(
-            amdsmi_wrapper.amdsmi_get_processor_handles_by_type(
-                socket,
-                type,
-                null_ptr,
-                ctypes.byref(core_count),
-            )
-        )
-        c_handles = (
-            amdsmi_wrapper.amdsmi_processor_handle * core_count.value)()
-        _check_res(
-            amdsmi_wrapper.amdsmi_get_processor_handles_by_type(
-                socket,
-                type,
-                c_handles,
-                ctypes.byref(core_count)
-            )
-        )
-        core_handles.extend(
-            [
-                amdsmi_wrapper.amdsmi_processor_handle(c_handles[dev_idx])
-                for dev_idx in range(core_count.value)
-            ]
-        )
     return core_handles
 
 
@@ -1631,15 +1653,22 @@ def amdsmi_get_gpu_asic_info(
             processor_handle, ctypes.byref(asic_info_struct))
     )
 
+    market_name = _pad_hex_value(asic_info_struct.market_name.decode("utf-8"), 4)
+    target_graphics_version = str(asic_info_struct.target_graphics_version)
+    if len(target_graphics_version) == 4 and ("Instinct MI2" in market_name):
+        hex_part = str(hex(int(str(asic_info_struct.target_graphics_version)[2:]))).replace("0x", "")
+        target_graphics_version = str(asic_info_struct.target_graphics_version)[:2] + hex_part
     asic_info = {
-        "market_name": _padHexValue(asic_info_struct.market_name.decode("utf-8"), 4),
+        "market_name": market_name,
         "vendor_id": asic_info_struct.vendor_id,
         "vendor_name": asic_info_struct.vendor_name.decode("utf-8"),
         "subvendor_id": asic_info_struct.subvendor_id,
         "device_id": asic_info_struct.device_id,
-        "rev_id": _padHexValue(hex(asic_info_struct.rev_id), 2),
+        "rev_id": _pad_hex_value(hex(asic_info_struct.rev_id), 2),
         "asic_serial": asic_info_struct.asic_serial.decode("utf-8"),
-        "oam_id": asic_info_struct.oam_id
+        "oam_id": asic_info_struct.oam_id,
+        "num_compute_units": asic_info_struct.num_of_compute_units,
+        "target_graphics_version": "gfx" + target_graphics_version
     }
 
     string_values = ["market_name", "vendor_name"]
@@ -1666,10 +1695,37 @@ def amdsmi_get_gpu_asic_info(
     if asic_info["oam_id"] == 0xFFFF: # uint 16 max
         asic_info["oam_id"] = "N/A"
 
+    # Check for max value as a sign for not applicable
+    if asic_info["num_compute_units"] == 0xFFFFFFFF: # uint 32 max
+        asic_info["num_compute_units"] = "N/A"
+
     # Remove commas from vendor name for clean output
     asic_info["vendor_name"] = asic_info["vendor_name"].replace(',', '')
 
     return asic_info
+
+
+def amdsmi_get_gpu_kfd_info(
+    processor_handle: amdsmi_wrapper.amdsmi_processor_handle,
+) -> Dict[str, Any]:
+    if not isinstance(processor_handle, amdsmi_wrapper.amdsmi_processor_handle):
+        raise AmdSmiParameterException(
+            processor_handle, amdsmi_wrapper.amdsmi_processor_handle
+        )
+
+    kfd_info_struct = amdsmi_wrapper.amdsmi_kfd_info_t()
+    _check_res(
+        amdsmi_wrapper.amdsmi_get_gpu_kfd_info(
+            processor_handle, ctypes.byref(kfd_info_struct))
+    )
+
+    kfd_info = {
+        "kfd_id": _validate_if_max_uint(kfd_info_struct.kfd_id, MaxUIntegerTypes.UINT64_T),
+        "node_id": _validate_if_max_uint(kfd_info_struct.node_id, MaxUIntegerTypes.UINT32_T),
+        "current_partition_id": _validate_if_max_uint(kfd_info_struct.current_partition_id, MaxUIntegerTypes.UINT32_T)
+    }
+
+    return kfd_info
 
 
 def amdsmi_get_power_cap_info(
@@ -1694,6 +1750,63 @@ def amdsmi_get_power_cap_info(
             "max_power_cap": power_info.max_power_cap}
 
 
+def amdsmi_get_gpu_pm_metrics_info(
+    processor_handle: amdsmi_wrapper.amdsmi_processor_handle,
+) -> Dict[str, Any]:
+    if not isinstance(processor_handle, amdsmi_wrapper.amdsmi_processor_handle):
+        raise AmdSmiParameterException(
+            processor_handle, amdsmi_wrapper.amdsmi_processor_handle
+        )
+
+    pm_metrics = ctypes.POINTER(amdsmi_wrapper.amdsmi_name_value_t)
+    num_mets = ctypes.c_uint32
+
+    _check_res(
+        amdsmi_wrapper.amdsmi_get_gpu_pm_metrics_info(
+            processor_handle, ctypes.byref(pm_metrics), ctypes.byref(num_mets)
+        )
+    )
+
+    results = []
+    for i in range(num_mets.value):
+        item = {
+            'name': pm_metrics[i].name,
+            'value': pm_metrics[i].value
+        }
+        results.append(item)
+    amdsmi_wrapper.amdsmi_free_name_value_pairs(pm_metrics)
+    return results
+
+
+def amdsmi_get_gpu_reg_table_info(
+    processor_handle: amdsmi_wrapper.amdsmi_processor_handle,
+    reg_type: AmdSmiRegType,
+) -> Dict[str, Any]:
+    if not isinstance(processor_handle, amdsmi_wrapper.amdsmi_processor_handle):
+        raise AmdSmiParameterException(
+            processor_handle, amdsmi_wrapper.amdsmi_processor_handle
+        )
+
+    reg_metrics = ctypes.POINTER(amdsmi_wrapper.amdsmi_name_value_t)
+    num_regs = ctypes.c_uint32
+
+    _check_res(
+        amdsmi_wrapper.amdsmi_get_gpu_reg_table_info(
+            processor_handle, reg_type, ctypes.byref(reg_metrics), ctypes.byref(num_regs)
+        )
+    )
+
+    results = []
+    for i in range(num_regs.value):
+        item = {
+            'name': reg_metrics[i].name,
+            'value': reg_metrics[i].value
+        }
+        results.append(item)
+    amdsmi_wrapper.amdsmi_free_name_value_pairs(reg_metrics)
+    return results
+
+
 def amdsmi_get_gpu_vram_info(
     processor_handle: amdsmi_wrapper.amdsmi_processor_handle,
 ) -> Dict[str, Any]:
@@ -1712,6 +1825,7 @@ def amdsmi_get_gpu_vram_info(
         "vram_type": vram_info.vram_type,
         "vram_vendor": vram_info.vram_vendor,
         "vram_size": vram_info.vram_size,
+        "vram_bit_width": vram_info.vram_bit_width
     }
 
 
@@ -1874,6 +1988,41 @@ def amdsmi_get_gpu_bad_page_info(
     return _format_bad_page_info(bad_pages, num_pages)
 
 
+def amdsmi_get_violation_status(
+    processor_handle: amdsmi_wrapper.amdsmi_processor_handle,
+) -> Dict[str, Any]:
+    if not isinstance(processor_handle, amdsmi_wrapper.amdsmi_processor_handle):
+        raise AmdSmiParameterException(
+            processor_handle, amdsmi_wrapper.amdsmi_processor_handle
+        )
+
+    violation_status = amdsmi_wrapper.amdsmi_violation_status_t()
+    _check_res(
+        amdsmi_wrapper.amdsmi_get_violation_status(
+            processor_handle, ctypes.byref(violation_status))
+    )
+
+    return {
+        "reference_timestamp": _validate_if_max_uint(violation_status.reference_timestamp, MaxUIntegerTypes.UINT64_T),
+        "violation_timestamp": _validate_if_max_uint(violation_status.violation_timestamp, MaxUIntegerTypes.UINT64_T),
+        "acc_counter": _validate_if_max_uint(violation_status.acc_counter, MaxUIntegerTypes.UINT64_T),
+        "acc_prochot_thrm": _validate_if_max_uint(violation_status.acc_prochot_thrm, MaxUIntegerTypes.UINT64_T),
+        "acc_ppt_pwr": _validate_if_max_uint(violation_status.acc_ppt_pwr, MaxUIntegerTypes.UINT64_T),                           #PVIOL
+        "acc_socket_thrm": _validate_if_max_uint(violation_status.acc_socket_thrm, MaxUIntegerTypes.UINT64_T),                   #TVIOL
+        "acc_vr_thrm": _validate_if_max_uint(violation_status.acc_vr_thrm, MaxUIntegerTypes.UINT64_T),
+        "acc_hbm_thrm": _validate_if_max_uint(violation_status.acc_hbm_thrm, MaxUIntegerTypes.UINT64_T),
+        "per_prochot_thrm": _validate_if_max_uint(violation_status.per_prochot_thrm, MaxUIntegerTypes.UINT64_T, isActivity=True),
+        "per_ppt_pwr": _validate_if_max_uint(violation_status.per_ppt_pwr, MaxUIntegerTypes.UINT64_T, isActivity=True),          #PVIOL
+        "per_socket_thrm": _validate_if_max_uint(violation_status.per_socket_thrm, MaxUIntegerTypes.UINT64_T, isActivity=True),  #TVIOL
+        "per_vr_thrm": _validate_if_max_uint(violation_status.per_vr_thrm, MaxUIntegerTypes.UINT64_T, isActivity=True),
+        "per_hbm_thrm": _validate_if_max_uint(violation_status.per_hbm_thrm, MaxUIntegerTypes.UINT64_T, isActivity=True),
+        "active_prochot_thrm": _validate_if_max_uint(violation_status.active_prochot_thrm, MaxUIntegerTypes.UINT8_T, isBool=True),
+        "active_ppt_pwr": _validate_if_max_uint(violation_status.active_ppt_pwr, MaxUIntegerTypes.UINT8_T, isBool=True),         #PVIOL
+        "active_socket_thrm": _validate_if_max_uint(violation_status.active_socket_thrm, MaxUIntegerTypes.UINT8_T, isBool=True), #TVIOL
+        "active_vr_thrm": _validate_if_max_uint(violation_status.active_vr_thrm, MaxUIntegerTypes.UINT8_T, isBool=True),
+        "active_hbm_thrm": _validate_if_max_uint(violation_status.active_hbm_thrm, MaxUIntegerTypes.UINT8_T, isBool=True)
+    }
+
 def amdsmi_get_gpu_total_ecc_count(
     processor_handle: amdsmi_wrapper.amdsmi_processor_handle,
 ) -> Dict[str, Any]:
@@ -1911,10 +2060,10 @@ def amdsmi_get_gpu_board_info(
     )
 
     board_info_dict = {
-        "model_number": _padHexValue(board_info.model_number.decode("utf-8").strip(), 4),
+        "model_number": _pad_hex_value(board_info.model_number.decode("utf-8").strip(), 4),
         "product_serial": board_info.product_serial.decode("utf-8").strip(),
         "fru_id": board_info.fru_id.decode("utf-8").strip(),
-        "product_name": _padHexValue(board_info.product_name.decode("utf-8").strip(), 4),
+        "product_name": _pad_hex_value(board_info.product_name.decode("utf-8").strip(), 4),
         "manufacturer_name": board_info.manufacturer_name.decode("utf-8").strip()
     }
 
@@ -2213,30 +2362,23 @@ def amdsmi_get_pcie_info(
 
     pcie_info_dict = {
         "pcie_static": {
-            "max_pcie_width": pcie_info.pcie_static.max_pcie_width,
-            "max_pcie_speed": pcie_info.pcie_static.max_pcie_speed,
-            "pcie_interface_version": pcie_info.pcie_static.pcie_interface_version,
+            "max_pcie_width": _validate_if_max_uint(pcie_info.pcie_static.max_pcie_width, MaxUIntegerTypes.UINT16_T),
+            "max_pcie_speed": _validate_if_max_uint(pcie_info.pcie_static.max_pcie_speed, MaxUIntegerTypes.UINT32_T),
+            "pcie_interface_version": _validate_if_max_uint(pcie_info.pcie_static.pcie_interface_version, MaxUIntegerTypes.UINT32_T),
             "slot_type": pcie_info.pcie_static.slot_type,
             },
         "pcie_metric": {
-            "pcie_width": pcie_info.pcie_metric.pcie_width,
-            "pcie_speed": pcie_info.pcie_metric.pcie_speed,
-            "pcie_bandwidth": pcie_info.pcie_metric.pcie_bandwidth,
-            "pcie_replay_count": pcie_info.pcie_metric.pcie_replay_count,
-            "pcie_l0_to_recovery_count": pcie_info.pcie_metric.pcie_l0_to_recovery_count,
-            "pcie_replay_roll_over_count": pcie_info.pcie_metric.pcie_replay_roll_over_count,
-            "pcie_nak_sent_count": pcie_info.pcie_metric.pcie_nak_sent_count,
-            "pcie_nak_received_count": pcie_info.pcie_metric.pcie_nak_received_count,
+            "pcie_width": _validate_if_max_uint(pcie_info.pcie_metric.pcie_width, MaxUIntegerTypes.UINT16_T),
+            "pcie_speed": _validate_if_max_uint(pcie_info.pcie_metric.pcie_speed, MaxUIntegerTypes.UINT32_T),
+            "pcie_bandwidth": _validate_if_max_uint(pcie_info.pcie_metric.pcie_bandwidth, MaxUIntegerTypes.UINT32_T),
+            "pcie_replay_count": _validate_if_max_uint(pcie_info.pcie_metric.pcie_replay_count, MaxUIntegerTypes.UINT64_T),
+            "pcie_l0_to_recovery_count": _validate_if_max_uint(pcie_info.pcie_metric.pcie_l0_to_recovery_count, MaxUIntegerTypes.UINT64_T),
+            "pcie_replay_roll_over_count": _validate_if_max_uint(pcie_info.pcie_metric.pcie_replay_roll_over_count, MaxUIntegerTypes.UINT64_T),
+            "pcie_nak_sent_count": _validate_if_max_uint(pcie_info.pcie_metric.pcie_nak_sent_count, MaxUIntegerTypes.UINT64_T),
+            "pcie_nak_received_count": _validate_if_max_uint(pcie_info.pcie_metric.pcie_nak_received_count, MaxUIntegerTypes.UINT64_T),
+            "pcie_lc_perf_other_end_recovery_count": _validate_if_max_uint(pcie_info.pcie_metric.pcie_lc_perf_other_end_recovery_count, MaxUIntegerTypes.UINT32_T)
         }
     }
-
-    # Check pcie static values for uint max
-    if pcie_info_dict['pcie_static']['max_pcie_width'] == 0xFFFF:
-        pcie_info_dict['pcie_static']['max_pcie_width'] = "N/A"
-    if pcie_info_dict['pcie_static']['max_pcie_speed'] == 0xFFFFFFFF:
-        pcie_info_dict['pcie_static']['max_pcie_speed'] = "N/A"
-    if pcie_info_dict['pcie_static']['pcie_interface_version'] == 0xFFFFFFFF:
-        pcie_info_dict['pcie_static']['pcie_interface_version'] = "N/A"
 
     slot_type = pcie_info_dict['pcie_static']['slot_type']
     if isinstance(slot_type, int):
@@ -2247,29 +2389,6 @@ def amdsmi_get_pcie_info(
             pcie_info_dict['pcie_static']['slot_type'] = "Unknown"
     else:
         pcie_info_dict['pcie_static']['slot_type'] = "N/A"
-
-    # Check pcie metric values for uint max
-    if pcie_info_dict['pcie_metric']['pcie_width'] == 0xFFFF:
-        pcie_info_dict['pcie_metric']['pcie_width'] = "N/A"
-    if pcie_info_dict['pcie_metric']['pcie_speed'] == 0xFFFFFFFF:
-        pcie_info_dict['pcie_metric']['pcie_speed'] = "N/A"
-    if pcie_info_dict['pcie_metric']['pcie_bandwidth'] == 0xFFFFFFFF:
-        pcie_info_dict['pcie_metric']['pcie_bandwidth'] = "N/A"
-
-    # TODO Just Navi 21 has a different uint max size for pcie_bandwidth
-    # if pcie_info_dict['pcie_metric']['pcie_bandwidth'] == 0xFFFFFFFF:
-    #     pcie_info_dict['pcie_metric']['pcie_bandwidth'] = "N/A"
-
-    if pcie_info_dict['pcie_metric']['pcie_replay_count'] == 0xFFFFFFFFFFFFFFFF:
-        pcie_info_dict['pcie_metric']['pcie_replay_count'] = "N/A"
-    if pcie_info_dict['pcie_metric']['pcie_l0_to_recovery_count'] == 0xFFFFFFFFFFFFFFFF:
-        pcie_info_dict['pcie_metric']['pcie_l0_to_recovery_count'] = "N/A"
-    if pcie_info_dict['pcie_metric']['pcie_replay_roll_over_count'] == 0xFFFFFFFFFFFFFFFF:
-        pcie_info_dict['pcie_metric']['pcie_replay_roll_over_count'] = "N/A"
-    if pcie_info_dict['pcie_metric']['pcie_nak_sent_count'] == 0xFFFFFFFFFFFFFFFF:
-        pcie_info_dict['pcie_metric']['pcie_nak_sent_count'] = "N/A"
-    if pcie_info_dict['pcie_metric']['pcie_nak_received_count'] == 0xFFFFFFFFFFFFFFFF:
-        pcie_info_dict['pcie_metric']['pcie_nak_received_count'] = "N/A"
 
     return pcie_info_dict
 
@@ -2350,7 +2469,7 @@ def amdsmi_get_gpu_subsystem_id(processor_handle: amdsmi_wrapper.amdsmi_processo
             processor_handle, ctypes.byref(id))
     )
 
-    return id.value
+    return _pad_hex_value(hex(id.value), 4)
 
 
 def amdsmi_get_gpu_subsystem_name(processor_handle: amdsmi_wrapper.amdsmi_processor_handle):
@@ -2488,6 +2607,41 @@ def amdsmi_topo_get_link_type(
     return {"hops": hops.value, "type": type.value}
 
 
+def amdsmi_topo_get_p2p_status(
+    processor_handle_src: amdsmi_wrapper.amdsmi_processor_handle,
+    processor_handle_dst: amdsmi_wrapper.amdsmi_processor_handle,
+):
+    if not isinstance(processor_handle_src, amdsmi_wrapper.amdsmi_processor_handle):
+        raise AmdSmiParameterException(
+            processor_handle_src, amdsmi_wrapper.amdsmi_processor_handle
+        )
+
+    if not isinstance(processor_handle_dst, amdsmi_wrapper.amdsmi_processor_handle):
+        raise AmdSmiParameterException(
+            processor_handle_dst, amdsmi_wrapper.amdsmi_processor_handle
+        )
+
+    type = ctypes.c_uint32()
+    cap = amdsmi_wrapper.struct_amdsmi_p2p_capability_t()
+
+    _check_res(
+        amdsmi_wrapper.amdsmi_topo_get_p2p_status(
+            processor_handle_src, processor_handle_dst, ctypes.byref(type), ctypes.byref(cap)
+        )
+    )
+
+    return {
+        'type' : type,
+        'cap': {
+            'is_iolink_coherent': cap.is_iolink_coherent,
+            'is_iolink_atomics_32bit': cap.is_iolink_atomics_32bit,
+            'is_iolink_atomics_64bit': cap.is_iolink_atomics_64bit,
+            'is_iolink_dma': cap.is_iolink_dma,
+            'is_iolink_bi_directional': cap.is_iolink_bi_directional
+        }
+    }
+
+
 def amdsmi_is_P2P_accessible(
     processor_handle_src: amdsmi_wrapper.amdsmi_processor_handle,
     processor_handle_dst: amdsmi_wrapper.amdsmi_processor_handle,
@@ -2550,15 +2704,6 @@ def amdsmi_set_gpu_compute_partition(processor_handle: amdsmi_wrapper.amdsmi_pro
     )
 
 
-def amdsmi_reset_gpu_compute_partition(processor_handle: amdsmi_wrapper.amdsmi_processor_handle):
-    if not isinstance(processor_handle, amdsmi_wrapper.amdsmi_processor_handle):
-        raise AmdSmiParameterException(
-            processor_handle, amdsmi_wrapper.amdsmi_processor_handle
-        )
-
-    _check_res(amdsmi_wrapper.amdsmi_reset_gpu_compute_partition(processor_handle))
-
-
 def amdsmi_get_gpu_memory_partition(processor_handle: amdsmi_wrapper.amdsmi_processor_handle):
     if not isinstance(processor_handle, amdsmi_wrapper.amdsmi_processor_handle):
         raise AmdSmiParameterException(
@@ -2596,13 +2741,35 @@ def amdsmi_set_gpu_memory_partition(processor_handle: amdsmi_wrapper.amdsmi_proc
     )
 
 
-def amdsmi_reset_gpu_memory_partition(processor_handle: amdsmi_wrapper.amdsmi_processor_handle):
+def amdsmi_get_gpu_accelerator_partition_profile(
+    processor_handle: amdsmi_wrapper.amdsmi_processor_handle
+    ) -> Dict[str, Any]:
     if not isinstance(processor_handle, amdsmi_wrapper.amdsmi_processor_handle):
         raise AmdSmiParameterException(
             processor_handle, amdsmi_wrapper.amdsmi_processor_handle
         )
+    partition_id = ctypes.c_uint32()
+    profile = amdsmi_wrapper.amdsmi_accelerator_partition_profile_t()
 
-    _check_res(amdsmi_wrapper.amdsmi_reset_gpu_memory_partition(processor_handle))
+    _check_res(
+        amdsmi_wrapper.amdsmi_get_gpu_accelerator_partition_profile(processor_handle,
+                                                                    ctypes.byref(profile),
+                                                                    ctypes.byref(partition_id))
+    )
+
+    partition_profile_dict = {
+        "profile_type" : profile.profile_type,
+        "num_partitions" : profile.num_partitions,
+        "profile_index" : profile.profile_index,
+        "memory_caps" : profile.memory_caps,
+        "num_resources" : profile.num_resources,
+        "resources" : "N/A"
+    }
+
+    return {
+        "partition_id" : partition_id.value,
+        "partition_profile" : partition_profile_dict
+    }
 
 
 def amdsmi_get_xgmi_info(processor_handle: amdsmi_wrapper.amdsmi_processor_handle):
@@ -3052,17 +3219,18 @@ def amdsmi_get_energy_count(processor_handle: amdsmi_wrapper.amdsmi_processor_ha
             processor_handle, amdsmi_wrapper.amdsmi_processor_handle
         )
 
-    power = ctypes.c_uint64()
+    energy_accumulator= ctypes.c_uint64()
     counter_resolution = ctypes.c_float()
     timestamp = ctypes.c_uint64()
 
     _check_res(
         amdsmi_wrapper.amdsmi_get_energy_count(processor_handle, ctypes.byref(
-            power), ctypes.byref(counter_resolution), ctypes.byref(timestamp))
+            energy_accumulator), ctypes.byref(counter_resolution), ctypes.byref(timestamp))
     )
 
     return {
-        'power': power.value,
+        'power': energy_accumulator.value, # deprecating in 6.4
+        'energy_accumulator': energy_accumulator.value,
         'counter_resolution': counter_resolution.value,
         'timestamp': timestamp.value,
     }
@@ -3094,6 +3262,36 @@ def amdsmi_set_gpu_clk_range(
             ctypes.c_uint64(min_clk_value),
             ctypes.c_uint64(max_clk_value),
             clk_type,
+        )
+    )
+
+
+def amdsmi_set_gpu_clk_limit(
+        processor_handle: amdsmi_wrapper.amdsmi_processor_handle,
+        clk_type: str,
+        limit_type: str,
+        value: int
+    ) -> None:
+    if not isinstance(processor_handle, amdsmi_wrapper.amdsmi_processor_handle):
+        raise AmdSmiParameterException(
+            processor_handle, amdsmi_wrapper.amdsmi_processor_handle
+        )
+    if not isinstance(value, int):
+        raise AmdSmiParameterException(value, int)
+    if clk_type.lower() == "sclk":
+        clk_type_conversion = amdsmi_wrapper.AMDSMI_CLK_TYPE_SYS
+    elif clk_type.lower() == "mclk":
+        clk_type_conversion = amdsmi_wrapper.AMDSMI_CLK_TYPE_MEM
+    if limit_type.lower() == "min":
+        limit_type_conversion = amdsmi_wrapper.CLK_LIMIT_MIN
+    elif limit_type.lower() == "max":
+        limit_type_conversion = amdsmi_wrapper.CLK_LIMIT_MAX
+    _check_res(
+        amdsmi_wrapper.amdsmi_set_gpu_clk_limit(
+            processor_handle,
+            amdsmi_wrapper.amdsmi_clk_type_t(clk_type_conversion),
+            amdsmi_wrapper.amdsmi_clk_limit_type_t(limit_type_conversion),
+            ctypes.c_uint64(value),
         )
     )
 
@@ -3310,6 +3508,14 @@ def amdsmi_get_utilization_count(
         raise AmdSmiParameterException(
             processor_handle, amdsmi_wrapper.amdsmi_processor_handle
         )
+
+    # Enforce List typing
+    if not isinstance(counter_types, list):
+        counter_types = [counter_types]
+
+    counter_types = list(set(counter_types))
+
+    # Validate Inputs
     if len(counter_types) == 0:
         raise AmdSmiLibraryException(amdsmi_wrapper.AMDSMI_STATUS_INVAL)
     counters = []
@@ -3341,7 +3547,7 @@ def amdsmi_get_utilization_count(
         if counter_type == "AMDSMI_UTILIZATION_COUNTER_FIRST":
             counter_type = "AMDSMI_COARSE_GRAIN_GPU_ACTIVITY"
         if counter_type == "AMDSMI_UTILIZATION_COUNTER_LAST":
-            counter_type = "AMDSMI_COARSE_GRAIN_MEM_ACTIVITY"
+            counter_type = "AMDSMI_FINE_DECODER_ACTIVITY"
         result.append(
             {"type": counter_type, "value": util_counter_list[index].value})
 
@@ -3404,6 +3610,24 @@ def amdsmi_get_gpu_overdrive_level(
     return od_level.value
 
 
+def amdsmi_get_gpu_mem_overdrive_level(
+    processor_handle: amdsmi_wrapper.amdsmi_processor_handle,
+) -> int:
+    if not isinstance(processor_handle, amdsmi_wrapper.amdsmi_processor_handle):
+        raise AmdSmiParameterException(
+            processor_handle, amdsmi_wrapper.amdsmi_processor_handle
+        )
+
+    mem_od_level = ctypes.c_uint32()
+    _check_res(
+        amdsmi_wrapper.amdsmi_get_gpu_mem_overdrive_level(
+            processor_handle, ctypes.byref(mem_od_level)
+        )
+    )
+
+    return mem_od_level.value
+
+
 def amdsmi_get_clk_freq(
     processor_handle: amdsmi_wrapper.amdsmi_processor_handle, clk_type: AmdSmiClkType
 ) -> Dict[str, Any]:
@@ -3424,7 +3648,7 @@ def amdsmi_get_clk_freq(
     return {
         "num_supported": freq.num_supported,
         "current": freq.current,
-        "frequency": list(freq.frequency)[: freq.num_supported - 1],
+        "frequency": list(freq.frequency)[: freq.num_supported],
     }
 
 
@@ -3563,130 +3787,104 @@ def amdsmi_get_gpu_metrics_info(
     )
 
     gpu_metrics_output = {
-        "temperature_edge": gpu_metrics.temperature_edge,
-        "temperature_hotspot": gpu_metrics.temperature_hotspot,
-        "temperature_mem": gpu_metrics.temperature_mem,
-        "temperature_vrgfx": gpu_metrics.temperature_vrgfx,
-        "temperature_vrsoc": gpu_metrics.temperature_vrsoc,
-        "temperature_vrmem": gpu_metrics.temperature_vrmem,
-        "average_gfx_activity": gpu_metrics.average_gfx_activity,
-        "average_umc_activity": gpu_metrics.average_umc_activity,
-        "average_mm_activity": gpu_metrics.average_mm_activity,
-        "average_socket_power": gpu_metrics.average_socket_power,
-        "energy_accumulator": gpu_metrics.energy_accumulator,
-        "system_clock_counter": gpu_metrics.system_clock_counter,
-        "average_gfxclk_frequency": gpu_metrics.average_gfxclk_frequency,
-        "average_socclk_frequency": gpu_metrics.average_socclk_frequency,
-        "average_uclk_frequency": gpu_metrics.average_uclk_frequency,
-        "average_vclk0_frequency": gpu_metrics.average_vclk0_frequency,
-        "average_dclk0_frequency": gpu_metrics.average_dclk0_frequency,
-        "average_vclk1_frequency": gpu_metrics.average_vclk1_frequency,
-        "average_dclk1_frequency": gpu_metrics.average_dclk1_frequency,
-        "current_gfxclk": gpu_metrics.current_gfxclk,
-        "current_socclk": gpu_metrics.current_socclk,
-        "current_uclk": gpu_metrics.current_uclk,
-        "current_vclk0": gpu_metrics.current_vclk0,
-        "current_dclk0": gpu_metrics.current_dclk0,
-        "current_vclk1": gpu_metrics.current_vclk1,
-        "current_dclk1": gpu_metrics.current_dclk1,
-        "throttle_status": gpu_metrics.throttle_status,
-        "current_fan_speed": gpu_metrics.current_fan_speed,
-        "pcie_link_width": gpu_metrics.pcie_link_width,
-        "pcie_link_speed": gpu_metrics.pcie_link_speed,
-        "gfx_activity_acc": gpu_metrics.gfx_activity_acc,
-        "mem_activity_acc": gpu_metrics.mem_activity_acc,
-        "temperature_hbm": list(gpu_metrics.temperature_hbm),
-        "firmware_timestamp": gpu_metrics.firmware_timestamp,
-        "voltage_soc": gpu_metrics.voltage_soc,
-        "voltage_gfx": gpu_metrics.voltage_gfx,
-        "voltage_mem": gpu_metrics.voltage_mem,
-        "indep_throttle_status": gpu_metrics.indep_throttle_status,
-        "current_socket_power": gpu_metrics.current_socket_power,
-        "vcn_activity": list(gpu_metrics.vcn_activity),
-        "gfxclk_lock_status": gpu_metrics.gfxclk_lock_status,
-        "xgmi_link_width": gpu_metrics.xgmi_link_width,
-        "xgmi_link_speed": gpu_metrics.xgmi_link_speed,
-        "pcie_bandwidth_acc": gpu_metrics.pcie_bandwidth_acc,
-        "pcie_bandwidth_inst": gpu_metrics.pcie_bandwidth_inst,
-        "pcie_l0_to_recov_count_acc": gpu_metrics.pcie_l0_to_recov_count_acc,
-        "pcie_replay_count_acc": gpu_metrics.pcie_replay_count_acc,
-        "pcie_replay_rover_count_acc": gpu_metrics.pcie_replay_rover_count_acc,
-        "xgmi_read_data_acc": list(gpu_metrics.xgmi_read_data_acc),
-        "xgmi_write_data_acc": list(gpu_metrics.xgmi_write_data_acc),
-        "current_gfxclks": list(gpu_metrics.current_gfxclks),
-        "current_socclks": list(gpu_metrics.current_socclks),
-        "current_vclk0s": list(gpu_metrics.current_vclk0s),
-        "current_dclk0s": list(gpu_metrics.current_dclk0s),
-        "pcie_nak_sent_count_acc": gpu_metrics.pcie_nak_sent_count_acc,
-        "pcie_nak_rcvd_count_acc": gpu_metrics.pcie_nak_rcvd_count_acc,
-        "jpeg_activity": list(gpu_metrics.jpeg_activity),
+        "temperature_edge": _validate_if_max_uint(gpu_metrics.temperature_edge, MaxUIntegerTypes.UINT16_T),
+        "temperature_hotspot": _validate_if_max_uint(gpu_metrics.temperature_hotspot, MaxUIntegerTypes.UINT16_T),
+        "temperature_mem": _validate_if_max_uint(gpu_metrics.temperature_mem, MaxUIntegerTypes.UINT16_T),
+        "temperature_vrgfx": _validate_if_max_uint(gpu_metrics.temperature_vrgfx, MaxUIntegerTypes.UINT16_T),
+        "temperature_vrsoc": _validate_if_max_uint(gpu_metrics.temperature_vrsoc, MaxUIntegerTypes.UINT16_T),
+        "temperature_vrmem": _validate_if_max_uint(gpu_metrics.temperature_vrmem, MaxUIntegerTypes.UINT16_T),
+        "average_gfx_activity": _validate_if_max_uint(gpu_metrics.average_gfx_activity, MaxUIntegerTypes.UINT16_T, isActivity=True),
+        "average_umc_activity": _validate_if_max_uint(gpu_metrics.average_umc_activity, MaxUIntegerTypes.UINT16_T, isActivity=True),
+        "average_mm_activity": _validate_if_max_uint(gpu_metrics.average_mm_activity, MaxUIntegerTypes.UINT16_T, isActivity=True),
+        "average_socket_power": _validate_if_max_uint(gpu_metrics.average_socket_power, MaxUIntegerTypes.UINT16_T),
+        "energy_accumulator": _validate_if_max_uint(gpu_metrics.energy_accumulator, MaxUIntegerTypes.UINT64_T),
+        "system_clock_counter": _validate_if_max_uint(gpu_metrics.system_clock_counter, MaxUIntegerTypes.UINT64_T),
+        "average_gfxclk_frequency": _validate_if_max_uint(gpu_metrics.average_gfxclk_frequency, MaxUIntegerTypes.UINT16_T),
+        "average_socclk_frequency": _validate_if_max_uint(gpu_metrics.average_socclk_frequency, MaxUIntegerTypes.UINT16_T),
+        "average_uclk_frequency": _validate_if_max_uint(gpu_metrics.average_uclk_frequency, MaxUIntegerTypes.UINT16_T),
+        "average_vclk0_frequency": _validate_if_max_uint(gpu_metrics.average_vclk0_frequency, MaxUIntegerTypes.UINT16_T),
+        "average_dclk0_frequency": _validate_if_max_uint(gpu_metrics.average_dclk0_frequency, MaxUIntegerTypes.UINT16_T),
+        "average_vclk1_frequency": _validate_if_max_uint(gpu_metrics.average_vclk1_frequency, MaxUIntegerTypes.UINT16_T),
+        "average_dclk1_frequency": _validate_if_max_uint(gpu_metrics.average_dclk1_frequency, MaxUIntegerTypes.UINT16_T),
+        "current_gfxclk": _validate_if_max_uint(gpu_metrics.current_gfxclk, MaxUIntegerTypes.UINT16_T),
+        "current_socclk": _validate_if_max_uint(gpu_metrics.current_socclk, MaxUIntegerTypes.UINT16_T),
+        "current_uclk": _validate_if_max_uint(gpu_metrics.current_uclk, MaxUIntegerTypes.UINT16_T),
+        "current_vclk0": _validate_if_max_uint(gpu_metrics.current_vclk0, MaxUIntegerTypes.UINT16_T),
+        "current_dclk0": _validate_if_max_uint(gpu_metrics.current_dclk0, MaxUIntegerTypes.UINT16_T),
+        "current_vclk1": _validate_if_max_uint(gpu_metrics.current_vclk1, MaxUIntegerTypes.UINT16_T),
+        "current_dclk1": _validate_if_max_uint(gpu_metrics.current_dclk1, MaxUIntegerTypes.UINT16_T),
+        "throttle_status": _validate_if_max_uint(gpu_metrics.throttle_status, MaxUIntegerTypes.UINT32_T, isBool=True),
+        "current_fan_speed": _validate_if_max_uint(gpu_metrics.current_fan_speed, MaxUIntegerTypes.UINT16_T),
+        "pcie_link_width": _validate_if_max_uint(gpu_metrics.pcie_link_width, MaxUIntegerTypes.UINT16_T),
+        "pcie_link_speed": _validate_if_max_uint(gpu_metrics.pcie_link_speed, MaxUIntegerTypes.UINT16_T),
+        "gfx_activity_acc": _validate_if_max_uint(gpu_metrics.gfx_activity_acc, MaxUIntegerTypes.UINT32_T),
+        "mem_activity_acc": _validate_if_max_uint(gpu_metrics.mem_activity_acc, MaxUIntegerTypes.UINT32_T),
+        "temperature_hbm": _validate_if_max_uint(list(gpu_metrics.temperature_hbm), MaxUIntegerTypes.UINT16_T),
+        "firmware_timestamp": _validate_if_max_uint(gpu_metrics.firmware_timestamp, MaxUIntegerTypes.UINT64_T),
+        "voltage_soc": _validate_if_max_uint(gpu_metrics.voltage_soc, MaxUIntegerTypes.UINT16_T),
+        "voltage_gfx": _validate_if_max_uint(gpu_metrics.voltage_gfx, MaxUIntegerTypes.UINT16_T),
+        "voltage_mem": _validate_if_max_uint(gpu_metrics.voltage_mem, MaxUIntegerTypes.UINT16_T),
+        "indep_throttle_status": _validate_if_max_uint(gpu_metrics.indep_throttle_status, MaxUIntegerTypes.UINT64_T, isBool=True),
+        "current_socket_power": _validate_if_max_uint(gpu_metrics.current_socket_power, MaxUIntegerTypes.UINT16_T),
+        "vcn_activity": _validate_if_max_uint(list(gpu_metrics.vcn_activity), MaxUIntegerTypes.UINT16_T, isActivity=True),
+        "gfxclk_lock_status": _validate_if_max_uint(gpu_metrics.gfxclk_lock_status, MaxUIntegerTypes.UINT32_T),
+        "xgmi_link_width": _validate_if_max_uint(gpu_metrics.xgmi_link_width, MaxUIntegerTypes.UINT16_T),
+        "xgmi_link_speed": _validate_if_max_uint(gpu_metrics.xgmi_link_speed, MaxUIntegerTypes.UINT16_T),
+        "pcie_bandwidth_acc": _validate_if_max_uint(gpu_metrics.pcie_bandwidth_acc, MaxUIntegerTypes.UINT64_T),
+        "pcie_bandwidth_inst": _validate_if_max_uint(gpu_metrics.pcie_bandwidth_inst, MaxUIntegerTypes.UINT64_T),
+        "pcie_l0_to_recov_count_acc": _validate_if_max_uint(gpu_metrics.pcie_l0_to_recov_count_acc, MaxUIntegerTypes.UINT64_T),
+        "pcie_replay_count_acc": _validate_if_max_uint(gpu_metrics.pcie_replay_count_acc, MaxUIntegerTypes.UINT64_T),
+        "pcie_replay_rover_count_acc": _validate_if_max_uint(gpu_metrics.pcie_replay_rover_count_acc, MaxUIntegerTypes.UINT64_T),
+        "xgmi_read_data_acc": _validate_if_max_uint(list(gpu_metrics.xgmi_read_data_acc), MaxUIntegerTypes.UINT64_T),
+        "xgmi_write_data_acc": _validate_if_max_uint(list(gpu_metrics.xgmi_write_data_acc), MaxUIntegerTypes.UINT64_T),
+        "current_gfxclks": _validate_if_max_uint(list(gpu_metrics.current_gfxclks), MaxUIntegerTypes.UINT16_T),
+        "current_socclks": _validate_if_max_uint(list(gpu_metrics.current_socclks), MaxUIntegerTypes.UINT16_T),
+        "current_vclk0s": _validate_if_max_uint(list(gpu_metrics.current_vclk0s), MaxUIntegerTypes.UINT16_T),
+        "current_dclk0s": _validate_if_max_uint(list(gpu_metrics.current_dclk0s), MaxUIntegerTypes.UINT16_T),
+        "jpeg_activity": _validate_if_max_uint(list(gpu_metrics.jpeg_activity), MaxUIntegerTypes.UINT16_T, isActivity=True),
+        "pcie_nak_sent_count_acc": _validate_if_max_uint(gpu_metrics.pcie_nak_sent_count_acc, MaxUIntegerTypes.UINT32_T),
+        "pcie_nak_rcvd_count_acc": _validate_if_max_uint(gpu_metrics.pcie_nak_rcvd_count_acc, MaxUIntegerTypes.UINT32_T),
+        "accumulation_counter": _validate_if_max_uint(gpu_metrics.accumulation_counter, MaxUIntegerTypes.UINT64_T),
+        "prochot_residency_acc": _validate_if_max_uint(gpu_metrics.prochot_residency_acc, MaxUIntegerTypes.UINT64_T),
+        "ppt_residency_acc": _validate_if_max_uint(gpu_metrics.ppt_residency_acc, MaxUIntegerTypes.UINT64_T),
+        "socket_thm_residency_acc": _validate_if_max_uint(gpu_metrics.socket_thm_residency_acc, MaxUIntegerTypes.UINT64_T),
+        "vr_thm_residency_acc": _validate_if_max_uint(gpu_metrics.vr_thm_residency_acc, MaxUIntegerTypes.UINT64_T),
+        "hbm_thm_residency_acc": _validate_if_max_uint(gpu_metrics.hbm_thm_residency_acc, MaxUIntegerTypes.UINT64_T),
+        "num_partition": _validate_if_max_uint(gpu_metrics.num_partition, MaxUIntegerTypes.UINT16_T),
+        "xcp_stats.gfx_busy_inst": list(gpu_metrics.xcp_stats),
+        "xcp_stats.jpeg_busy": list(gpu_metrics.xcp_stats),
+        "xcp_stats.vcn_busy": list(gpu_metrics.xcp_stats),
+        "xcp_stats.gfx_busy_acc": list(gpu_metrics.xcp_stats),
+        "pcie_lc_perf_other_end_recovery": _validate_if_max_uint(gpu_metrics.pcie_lc_perf_other_end_recovery, MaxUIntegerTypes.UINT32_T),
     }
 
-    # Validate support for each gpu_metric
-    uint_16_metrics = ['temperature_edge', 'temperature_hotspot', 'temperature_mem',
-                     'temperature_vrgfx', 'temperature_vrsoc', 'temperature_vrmem',
-                     'average_gfx_activity', 'average_umc_activity', 'average_mm_activity',
-                     'average_socket_power', 'average_gfxclk_frequency', 'average_socclk_frequency',
-                     'average_uclk_frequency', 'average_vclk0_frequency', 'average_dclk0_frequency',
-                     'average_vclk1_frequency', 'average_dclk1_frequency', 'current_gfxclk',
-                     'current_socclk', 'current_uclk', 'current_vclk0', 'current_dclk0',
-                     'current_vclk1', 'current_dclk1', 'current_fan_speed', 'pcie_link_width',
-                     'pcie_link_speed', 'voltage_soc', 'voltage_gfx', 'voltage_mem',
-                     'current_socket_power', 'xgmi_link_width', 'xgmi_link_speed']
-    for metric in uint_16_metrics:
-        if gpu_metrics_output[metric] == 0xFFFF:
-            gpu_metrics_output[metric] = "N/A"
-
-    uint_32_metrics = ['gfx_activity_acc','mem_activity_acc', 'pcie_nak_sent_count_acc', 'pcie_nak_rcvd_count_acc', 'gfxclk_lock_status']
-    for metric in uint_32_metrics:
-        if gpu_metrics_output[metric] == 0xFFFFFFFF:
-            gpu_metrics_output[metric] = "N/A"
-
-    uint_64_metrics = ['energy_accumulator', 'system_clock_counter', 'firmware_timestamp',
-                      'pcie_bandwidth_acc', 'pcie_bandwidth_inst',
-                      'pcie_l0_to_recov_count_acc', 'pcie_replay_count_acc',
-                      'pcie_replay_rover_count_acc']
-    for metric in uint_64_metrics:
-        if gpu_metrics_output[metric] == 0xFFFFFFFFFFFFFFFF:
-            gpu_metrics_output[metric] = "N/A"
-
-    # Custom validation for metrics in a bool format
-    uint_32_bool_metrics = ['throttle_status']
-    for metric in uint_32_bool_metrics:
-        if gpu_metrics_output[metric] == 0xFFFFFFFF:
-            gpu_metrics_output[metric] = "N/A"
-        else:
-            gpu_metrics_output[metric] = bool(gpu_metrics_output[metric])
-
-    # Custom validation for metrics in a list format
-    uint_16_clock_list_metrics = ['current_gfxclks', 'current_socclks', 'current_vclk0s', 'current_dclk0s']
-    for clock in uint_16_clock_list_metrics:
-        for index, clk in enumerate(gpu_metrics_output[clock]):
-            if clk == 0xFFFF:
-                gpu_metrics_output[clock][index] = "N/A"
-
-    uint_16_activity_list_metrics = ['vcn_activity', 'jpeg_activity']
-    for activity_metric in uint_16_activity_list_metrics:
-        for index, activity in enumerate(gpu_metrics_output[activity_metric]):
-            if activity == 0xFFFF or activity > 110:
-                gpu_metrics_output[activity_metric][index] = "N/A"
-
-    uint_64_xgmi_metrics = ['xgmi_read_data_acc', 'xgmi_write_data_acc']
-    for metric in uint_64_xgmi_metrics:
-        for index, data in enumerate(gpu_metrics_output[metric]):
-            if data == 0xFFFFFFFFFFFFFFFF:
-                gpu_metrics_output[metric][index] = "N/A"
-
-    # Custom validation for specific gpu_metrics
-    for index, temp in enumerate(gpu_metrics_output['temperature_hbm']):
-        if temp == 0xFFFF:
-            gpu_metrics_output['temperature_hbm'][index] = "N/A"
-
-    if gpu_metrics_output['indep_throttle_status'] == 0xFFFFFFFFFFFFFFFF:
-        gpu_metrics_output['indep_throttle_status'] = "N/A"
-    else:
-        gpu_metrics_output['indep_throttle_status'] = bool(gpu_metrics_output['indep_throttle_status'])
-
+    # Create 2d array with each XCD's stats
+    for k,v in gpu_metrics_output.items():
+        if 'xcp_stats' in k:
+            if 'xcp_stats.gfx_busy_inst' in k:
+                for curr_xcp, item in enumerate(v):
+                    print_xcp_detail = []
+                    for val in item.gfx_busy_inst:
+                        print_xcp_detail.append(_validate_if_max_uint(val, MaxUIntegerTypes.UINT32_T, isActivity=True))
+                    gpu_metrics_output[k][curr_xcp] = print_xcp_detail
+            if 'xcp_stats.jpeg_busy' in k:
+                for curr_xcp, item in enumerate(v):
+                    print_xcp_detail = []
+                    for val in item.jpeg_busy:
+                        print_xcp_detail.append(_validate_if_max_uint(val, MaxUIntegerTypes.UINT16_T, isActivity=True))
+                    gpu_metrics_output[k][curr_xcp] = print_xcp_detail
+            if 'xcp_stats.vcn_busy' in k:
+                for curr_xcp, item in enumerate(v):
+                    print_xcp_detail = []
+                    for val in item.vcn_busy:
+                        print_xcp_detail.append(_validate_if_max_uint(val, MaxUIntegerTypes.UINT16_T, isActivity=True))
+                    gpu_metrics_output[k][curr_xcp] = print_xcp_detail
+            if 'xcp_stats.gfx_busy_acc' in k:
+                for curr_xcp, item in enumerate(v):
+                    print_xcp_detail = []
+                    for val in item.gfx_busy_acc:
+                        print_xcp_detail.append(_validate_if_max_uint(val, MaxUIntegerTypes.UINT64_T, isActivity=True))
+                    gpu_metrics_output[k][curr_xcp] = print_xcp_detail
     return gpu_metrics_output
 
 
@@ -3963,12 +4161,35 @@ def amdsmi_get_gpu_metrics_header_info(
     header_info = amdsmi_wrapper.amd_metrics_table_header_t()
     _check_res(
         amdsmi_wrapper.amdsmi_get_gpu_metrics_header_info(
-            ctypes.byref(header_info)
+            processor_handle, ctypes.byref(header_info)
         )
     )
 
     return {
-        "structure_size": header_info.structure_size.value,
-        "format_revision": header_info.format_revision.value,
-        "content_revision": header_info.content_revision.value
+        "structure_size": header_info.structure_size,
+        "format_revision": header_info.format_revision,
+        "content_revision": header_info.content_revision
+    }
+
+def amdsmi_get_link_topology_nearest(
+    processor_handle: amdsmi_wrapper.amdsmi_processor_handle,
+    link_type: AmdSmiLinkType,
+    )-> Dict[str, Any]:
+
+    topology_nearest_list = amdsmi_wrapper.amdsmi_topology_nearest_t()
+    _check_res(
+        amdsmi_wrapper.amdsmi_get_link_topology_nearest(
+               processor_handle,
+               link_type,
+               ctypes.byref(topology_nearest_list)
+        )
+    )
+
+    device_list = []
+    for index in range(topology_nearest_list.count):
+        device_list.append(topology_nearest_list.processor_list[index])
+
+    return {
+        'count': topology_nearest_list.count,
+        'processor_list': device_list
     }

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 #
-# Copyright (C) 2023 Advanced Micro Devices. All rights reserved.
+# Copyright (C) 2024 Advanced Micro Devices. All rights reserved.
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy of
 # this software and associated documentation files (the "Software"), to deal in
@@ -27,6 +27,7 @@ import platform
 import sys
 import time
 import re
+import multiprocessing
 
 from typing import List, Union
 from enum import Enum
@@ -54,6 +55,7 @@ class AMDSMIHelpers():
 
         self._is_linux = False
         self._is_windows = False
+        self._count_of_sets_called = 0
 
         if self.operating_system.startswith("Linux"):
             self._is_linux = True
@@ -77,41 +79,11 @@ class AMDSMIHelpers():
                     self._is_virtual_os = False
                     self._is_passthrough = True
 
+    def increment_set_count(self):
+        self._count_of_sets_called += 1
 
-    def os_info(self, string_format=True):
-        """Return operating_system and type information ex. (Linux, Baremetal)
-        params:
-            string_format (bool) True to return in string format, False to return Tuple
-        returns:
-            str or (str, str)
-        """
-        operating_system = ""
-        if self._is_linux:
-            operating_system = "Linux"
-        elif self._is_windows:
-            operating_system = "Windows"
-        else:
-            operating_system = "Unknown"
-
-        operating_system_type = ""
-        if self._is_baremetal:
-            operating_system_type = "Baremetal"
-        elif self._is_virtual_os:
-            operating_system_type = "Guest"
-        elif self._is_hypervisor:
-            operating_system_type = "Hypervisor"
-        else:
-            operating_system_type = "Unknown"
-
-        # Passthrough Override
-        if self._is_passthrough:
-            operating_system_type = "Guest (Passthrough)"
-
-        if string_format:
-            return f"{operating_system} {operating_system_type}"
-
-        return (operating_system, operating_system_type)
-
+    def get_set_count(self):
+        return self._count_of_sets_called
 
     def is_virtual_os(self):
         return self._is_virtual_os
@@ -126,6 +98,9 @@ class AMDSMIHelpers():
         # Returns True if system is baremetal, if system is hypervisor this should return False
         return self._is_baremetal
 
+    def is_passthrough(self):
+        return self._is_passthrough
+
 
     def is_linux(self):
         return self._is_linux
@@ -133,6 +108,41 @@ class AMDSMIHelpers():
 
     def is_windows(self):
         return self._is_windows
+
+
+    def os_info(self, string_format=True):
+        """Return operating_system and type information ex. (Linux, Baremetal)
+        params:
+            string_format (bool) True to return in string format, False to return Tuple
+        returns:
+            str or (str, str)
+        """
+        operating_system = ""
+        if self.is_linux():
+            operating_system = "Linux"
+        elif self.is_windows():
+            operating_system = "Windows"
+        else:
+            operating_system = "Unknown"
+
+        operating_system_type = ""
+        if self.is_baremetal():
+            operating_system_type = "Baremetal"
+        elif self.is_virtual_os():
+            operating_system_type = "Guest"
+        elif self.is_hypervisor():
+            operating_system_type = "Hypervisor"
+        else:
+            operating_system_type = "Unknown"
+
+        # Passthrough Override
+        if self.is_passthrough():
+            operating_system_type = "Guest (Passthrough)"
+
+        if string_format:
+            return f"{operating_system} {operating_system_type}"
+
+        return (operating_system, operating_system_type)
 
 
     def get_amdsmi_init_flag(self):
@@ -737,6 +747,30 @@ class AMDSMIHelpers():
         else:
             sys.exit('Confirmation not given. Exiting without setting value')
 
+    def confirm_changing_memory_partition_gpu_reload_warning(self, auto_respond=False):
+        """ Print the warning for running outside of specification and prompt user to accept the terms.
+
+        :param autoRespond: Response to automatically provide for all prompts
+        """
+        print('''
+          ****** WARNING ******\n
+          Setting Dynamic Memory (NPS) partition modes require users to quit all GPU workloads.
+          AMD SMI will then attempt to change memory (NPS) partition mode.
+          Upon a successful set, AMD SMI will then initiate an action to restart amdgpu driver.
+          This action will change all GPU's in the hive to the requested memory (NPS) partition mode.
+
+          Please use this utility with caution.
+          ''')
+        if not auto_respond:
+            user_input = input('Do you accept these terms? [Y/N] ')
+        else:
+            user_input = auto_respond
+        if user_input in ['Yes', 'yes', 'y', 'Y', 'YES']:
+            print('')
+            return
+        else:
+            print('Confirmation not given. Exiting without setting value')
+            sys.exit(1)
 
     def is_valid_profile(self, profile):
         profile_presets = amdsmi_interface.amdsmi_wrapper.amdsmi_power_profile_preset_masks_t__enumvalues
@@ -815,3 +849,21 @@ class AMDSMIHelpers():
             except Exception as _:
                 continue
         return pci_devices
+
+    def progressbar(self, it, prefix="", size=60, out=sys.stdout):
+        count = len(it)
+        def show(j):
+            x = int(size*j/count)
+            print("{}[{}{}] {}/{} secs remain".format(prefix, u"█"*x, "."*(size-x), j, count),
+                    end='\r', file=out, flush=True)
+        show(0)
+        for i, item in enumerate(it):
+            yield item
+            show(i+1)
+        print("\n\n", end='\r', flush=True, file=out)
+
+    def showProgressbar(self, title="", timeInSeconds=13):
+        if title != "":
+            title += ": "
+        for i in self.progressbar(range(timeInSeconds), title, 40):
+            time.sleep(1)

@@ -324,6 +324,8 @@ Field | Content
 `rev_id` |  revision id
 `asic_serial` | asic serial
 `oam_id` | oam id
+`num_of_compute_units` | number of compute units on asic
+`target_graphics_version` | hardware graphics version
 
 Exceptions that can be thrown by `amdsmi_get_gpu_asic_info` function:
 
@@ -341,13 +343,44 @@ try:
     else:
         for device in devices:
             asic_info = amdsmi_get_gpu_asic_info(device)
-            print(asic_info['market_name'])
-            print(hex(asic_info['vendor_id']))
-            print(asic_info['vendor_name'])
-            print(hex(asic_info['device_id']))
-            print(hex(asic_info['rev_id']))
-            print(asic_info['asic_serial'])
-            print(asic_info['oam_id'])
+            print(asic_info)
+except AmdSmiException as e:
+    print(e)
+```
+
+### amdsmi_get_gpu_kfd_info
+
+Description: Returns KFD(kernel fusion driver) information for the given GPU
+This correlates to GUID in rocm-smi
+
+Input parameters:
+
+* `processor_handle` device which to query
+
+Output: Dictionary with fields
+
+Field | Content
+---|---
+`kfd_id` | KFD's unique GPU identifier
+`node_id` | KFD's internal GPU index
+
+Exceptions that can be thrown by `amdsmi_get_gpu_kfd_info` function:
+
+* `AmdSmiLibraryException`
+* `AmdSmiRetryException`
+* `AmdSmiParameterException`
+
+Example:
+
+```python
+try:
+    devices = amdsmi_get_processor_handles()
+    if len(devices) == 0:
+        print("No GPUs on machine")
+    else:
+        for device in devices:
+            kfd_info = amdsmi_get_gpu_kfd_info(device)
+            print(kfd_info)
 except AmdSmiException as e:
     print(e)
 ```
@@ -411,6 +444,7 @@ Field | Description
 `vram_type` |  vram type
 `vram_vendor` |  vram vendor
 `vram_size` |  vram size in mb
+`vram_bit_width` | vram bit width
 
 Exceptions that can be thrown by `amdsmi_get_gpu_vram_info` function:
 
@@ -431,6 +465,7 @@ try:
             print(vram_info['vram_type'])
             print(vram_info['vram_vendor'])
             print(vram_info['vram_size'])
+            print(vram_info['vram_bit_width'])
 except AmdSmiException as e:
     print(e)
 ```
@@ -757,7 +792,7 @@ except AmdSmiException as e:
 
 ### amdsmi_get_pcie_info
 
-Description: Returns the pcie metric and static information for the given GPU.
+Description: Returns the pcie metric and static information for the given GPU. For accurate PCIe Bandwidth measurements it is recommended to use this function once per 1000ms
 It is not supported on virtual machine guest
 
 Input parameters:
@@ -1481,7 +1516,8 @@ except AmdSmiException as e:
 
 ### amdsmi_get_energy_count
 
-Description: Get the energy accumulator counter of the device.
+Description: Get the energy accumulator counter information of the device.
+energy_accumulator * counter_resolution = total_energy_consumption in micro-Joules
 It is not supported on virtual machine guest
 
 Input parameters:
@@ -1492,7 +1528,8 @@ Output: Dictionary with fields
 
 Field | Content
 ---|---
-`power` |  power
+`power` |  counter for energy accumulation since last restart/gpu rest (Deprecating in 6.4)
+`energy_accumulator` |  counter for energy accumulation since last restart/gpu rest
 `counter_resolution` |  counter resolution
 `timestamp` |  timestamp
 
@@ -1511,8 +1548,8 @@ try:
         print("No GPUs on machine")
     else:
         for device in devices:
-            power = amdsmi_get_energy_count(device)
-            print(power)
+            energy_dict = amdsmi_get_energy_count(device)
+            print(energy_dict)
 except AmdSmiException as e:
     print(e)
 ```
@@ -1555,7 +1592,7 @@ except AmdSmiException as e:
 
 ### amdsmi_set_gpu_od_clk_info
 
-Description: This function sets the clock frequency information
+Description: This function sets the clock frequency information.
 It is not supported on virtual machine guest
 
 Input parameters:
@@ -1870,19 +1907,19 @@ except AmdSmiException as e:
 
 ### amdsmi_get_utilization_count
 
-Description: Get coarse grain utilization counter of the specified device
+Description: Get coarse/fine grain utilization counter of the specified device
 
 Input parameters:
 
 * `processor_handle` handle for the given device
-* `counter_types` variable number of counter types desired
+* `counter_types` List of AmdSmiUtilizationCounterType counters requested
 
 Output: List containing dictionaries with fields
 
 Field | Description
 ---|---
 `timestamp` | The timestamp when the counter is retreived - Resolution: 1 ns
-`Dictionary for each counter` | <table> <thead><tr><th> Subfield </th><th>Description</th></tr></thead><tbody><tr><td>`type`</td><td>Type of utilization counter</td></tr><tr><td>`value`</td><td>Value gotten for utilization counter</td></tr></tbody></table>
+`Dictionary for each counter` | <table> <thead><tr><th> Subfield </th><th>Description</th></tr></thead><tbody><tr><td>`type`</td><td>Counter that was requested</td></tr><tr><td>`value`</td><td>Value gotten for utilization counter</td></tr></tbody></table>
 
 Exceptions that can be thrown by `amdsmi_get_utilization_count` function:
 
@@ -1902,13 +1939,17 @@ try:
             utilization = amdsmi_get_utilization_count(
                             device,
                             AmdSmiUtilizationCounterType.COARSE_GRAIN_GFX_ACTIVITY
-                            )
+                        )
             print(utilization)
             utilization = amdsmi_get_utilization_count(
                             device,
-                            AmdSmiUtilizationCounterType.COARSE_GRAIN_GFX_ACTIVITY,
-                            AmdSmiUtilizationCounterType.COARSE_GRAIN_MEM_ACTIVITY
-                            )
+                            [AmdSmiUtilizationCounterType.COARSE_GRAIN_GFX_ACTIVITY,
+                            AmdSmiUtilizationCounterType.COARSE_GRAIN_MEM_ACTIVITY,
+                            AmdSmiUtilizationCounterType.COARSE_DECODER_ACTIVITY,
+                            AmdSmiUtilizationCounterType.FINE_GRAIN_GFX_ACTIVITY,
+                            AmdSmiUtilizationCounterType.FINE_GRAIN_MEM_ACTIVITY,
+                            AmdSmiUtilizationCounterType.FINE_DECODER_ACTIVITY]
+                        )
             print(utilization)
 except AmdSmiException as e:
     print(e)
@@ -2102,6 +2143,38 @@ except AmdSmiException as e:
     print(e)
 ```
 
+### amdsmi_get_gpu_mem_overdrive_level
+
+Description: Get the GPU memory clock overdrive percent associated with the device with provided
+device handle. It is not supported on virtual machine guest
+
+Input parameters:
+
+* `processor_handle` handle for the given device
+
+Output: Overdrive percentage as integer
+
+Exceptions that can be thrown by `amdsmi_get_gpu_mem_overdrive_level` function:
+
+* `AmdSmiLibraryException`
+* `AmdSmiRetryException`
+* `AmdSmiParameterException`
+
+Example:
+
+```python
+try:
+    devices = amdsmi_get_processor_handles()
+    if len(devices) == 0:
+        print("No GPUs on machine")
+    else:
+        for device in devices:
+            od_level = amdsmi_get_gpu_mem_overdrive_level(dev)
+            print(od_level)
+except AmdSmiException as e:
+    print(e)
+```
+
 ### amdsmi_get_clk_freq
 
 Description: Get the list of possible system clock speeds of device for a
@@ -2269,6 +2342,78 @@ try:
     else:
         for device in devices:
             amdsmi_get_gpu_metrics_info(dev)
+except AmdSmiException as e:
+    print(e)
+```
+
+### amdsmi_get_gpu_pm_metrics_info
+
+Description: This function will retreive the name and value for each
+item in the pm metrics table with the given processor handle.
+
+Input parameters:
+
+* `processor_handle` handle for the given device
+
+Output: List containing dictionaries of pm metrics and their values
+
+Field | Description
+---|---
+`name` | name of PM metric
+`value` | value of pm metric
+
+Exceptions that can be thrown by `amdsmi_get_gpu_pm_metrics_info` function:
+
+* `AmdSmiLibraryException`
+* `AmdSmiRetryException`
+* `AmdSmiParameterException`
+
+Example:
+
+```python
+try:
+    devices = amdsmi_get_processor_handles()
+    if len(devices) == 0:
+        print("No GPUs on machine")
+    else:
+        for device in devices:
+            print(amdsmi_get_gpu_pm_metrics_info(device))
+except AmdSmiException as e:
+    print(e)
+```
+
+### amdsmi_get_gpu_reg_table_info
+
+Description: This function will retrieve register metrics table with provided device index and register type.
+
+Input parameters:
+
+* `processor_handle` handle for the given device
+* `reg_type` register type
+
+Output: List containing dictionaries of register metrics and their values
+
+Field | Description
+---|---
+`name` | name of register metric
+`value` | value of register metric
+
+Exceptions that can be thrown by `amdsmi_get_gpu_reg_table_info` function:
+
+* `AmdSmiLibraryException`
+* `AmdSmiRetryException`
+* `AmdSmiParameterException`
+
+Example:
+
+```python
+try:
+    devices = amdsmi_get_processor_handles()
+    if len(devices) == 0:
+        print("No GPUs on machine")
+    else:
+        for device in devices:
+            print(amdsmi_get_gpu_reg_table_info(device, AmdSmiRegType.PCIE))
 except AmdSmiException as e:
     print(e)
 ```
@@ -3484,6 +3629,45 @@ except AmdSmiException as e:
     print(e)
 ```
 
+### amdsmi_get_P2P_status
+
+Description: Retrieve the connection type and P2P capabilities between 2 GPUs
+
+Input parameters:
+
+* `processor_handle_src` the source device handle
+* `processor_handle_dest` the destination device handle
+
+Output:  Dictionary with fields:
+
+Fields | Description
+---|---
+`type` | AmdSmiIoLinkType
+`cap` | <table><thead><tr> <th> Subfield </th> <th> Description</th> </tr></thead><tbody><tr><td>`is_iolink_coherent`</td><td>1 == True; 0 == False; Uint_max = Undefined</td></tr><tr><td>`is_iolink_atomics_32bit`</td><td>Supports 32bit atomics</td></tr><tr><td>`is_iolink_atomics_64bit`</td><td>Supports 64bit atomics</td></tr><tr><td>`is_iolink_dma`</td><td>Supports DMA</td></tr><tr><td>`is_iolink_bi_directional`</td><td>Is the IOLink Bidirectional</td></tr></tbody></table>
+
+Exceptions that can be thrown by `amdsmi_get_P2P_status` function:
+
+* `AmdSmiLibraryException`
+* `AmdSmiRetryException`
+* `AmdSmiParameterException`
+
+Example:
+
+```python
+try:
+    devices = amdsmi_get_processor_handles()
+    if len(devices) == 0:
+        print("No GPUs on machine")
+    else:
+        processor_handle_src = devices[0]
+        processor_handle_dest = devices[1]
+        link_type = amdsmi_get_P2P_status(processor_handle_src, processor_handle_dest)
+        print(link_type['type'])
+        print(link_type['caps'])
+except AmdSmiException as e:
+    print(e)
+```
+
 ### amdsmi_is_P2P_accessible
 
 Description: Return P2P availability status between 2 GPUs
@@ -3580,35 +3764,6 @@ except AmdSmiException as e:
     print(e)
 ```
 
-### amdsmi_reset_gpu_compute_partition
-
-Description: Reset the compute partitioning on the given GPU
-
-Input parameters:
-
-* `processor_handle` the device handle
-
-Output: String of the partition type
-
-Exceptions that can be thrown by `amdsmi_reset_gpu_compute_partition` function:
-
-* `AmdSmiLibraryException`
-* `AmdSmiRetryException`
-* `AmdSmiParameterException`
-
-Example:
-
-```python
-try:
-    devices = amdsmi_get_processor_handles()
-    if len(devices) == 0:
-        print("No GPUs on machine")
-    else:
-        for device in devices:
-            amdsmi_reset_gpu_compute_partition(device)
-except AmdSmiException as e:
-    print(e)
-```
 
 ### amdsmi_get_gpu_memory_partition
 

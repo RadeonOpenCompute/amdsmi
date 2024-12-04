@@ -1,6 +1,8 @@
 # Generate py-interface and package targets
 
 # CLANG installed must be 16.0 or above
+# CLANG is only needed for generating new amdsmi_wrapper.py
+# this is normally done in a docker container with a controlled clang and python-clang versions
 set(clang_ver 16.0)
 set(clang_ver_py 16.0.1)
 set(ctypeslib_ver_py 2.3.4)
@@ -10,8 +12,6 @@ set(PY_BUILD_DIR "python_package")
 # additionally defined in pyproject.toml
 set(PY_PACKAGE_DIR "${PY_BUILD_DIR}/amdsmi")
 set(PY_WRAPPER_INSTALL_DIR "${SHARE_INSTALL_PREFIX}" CACHE STRING "Wrapper installation directory")
-
-# TODO: Figure out how python-clang and clang are related
 
 # try to find clang of the right version
 set(GOOD_CLANG_FOUND FALSE)
@@ -48,7 +48,7 @@ else()
     endif()
     add_custom_target(
         python_pre_reqs
-        COMMAND ${Python3_EXECUTABLE} -m pip install ${Python3_BREAK_SYSTEM_PACKAGES} clang==${clang_ver_py} ctypeslib2==${ctypeslib_ver_py})
+        COMMAND ${Python3_EXECUTABLE} -m pip install ${Python3_BREAK_SYSTEM_PACKAGES} ctypeslib2==${ctypeslib_ver_py})
     # generate new wrapper
     configure_file(${PROJECT_SOURCE_DIR}/tools/generator.py generator.py @ONLY COPYONLY)
     add_custom_command(
@@ -68,8 +68,8 @@ endif()
 
 # populate version string
 configure_file(pyproject.toml.in ${PY_BUILD_DIR}/pyproject.toml @ONLY)
-configure_file(setup.cfg.in ${PY_BUILD_DIR}/setup.cfg @ONLY)
 configure_file(_version.py.in ${PY_PACKAGE_DIR}/_version.py @ONLY)
+configure_file(setup.py.in ${PY_BUILD_DIR}/setup.py @ONLY)
 
 add_custom_target(
     python_wrapper
@@ -102,7 +102,7 @@ add_custom_command(
 add_custom_target(
     python_package ALL
     DEPENDS ${PY_BUILD_DIR}/pyproject.toml
-            ${PY_BUILD_DIR}/setup.cfg
+            ${PY_BUILD_DIR}/setup.py
             ${PY_PACKAGE_DIR}/_version.py
             ${PY_PACKAGE_DIR}/__init__.py
             ${PY_PACKAGE_DIR}/amdsmi_exception.py
@@ -115,7 +115,7 @@ add_custom_target(
 install(
     FILES
         ${CMAKE_CURRENT_BINARY_DIR}/${PY_BUILD_DIR}/pyproject.toml
-        ${CMAKE_CURRENT_BINARY_DIR}/${PY_BUILD_DIR}/setup.cfg
+        ${CMAKE_CURRENT_BINARY_DIR}/${PY_BUILD_DIR}/setup.py
         ${CMAKE_CURRENT_BINARY_DIR}/${PY_PACKAGE_DIR}/_version.py
     DESTINATION ${PY_WRAPPER_INSTALL_DIR}
     COMPONENT dev)

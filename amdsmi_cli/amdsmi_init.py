@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 #
-# Copyright (C) 2023 Advanced Micro Devices. All rights reserved.
+# Copyright (C) 2024 Advanced Micro Devices. All rights reserved.
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy of
 # this software and associated documentation files (the "Software"), to deal in
@@ -26,6 +26,7 @@ import atexit
 import logging
 import signal
 import sys
+import os
 
 from pathlib import Path
 
@@ -63,8 +64,8 @@ def check_amd_hsmp_driver():
     return False
 
 
-def init_amdsmi():
-    """ Initializes AMDSMI
+def amdsmi_cli_init():
+    """ Initializes AMDSMI Library for the CLI
 
     Checks for the presence of the amdgpu and amd_hsmp drivers and initializes the
     AMD SMI library based on the live drivers found.
@@ -119,7 +120,7 @@ def init_amdsmi():
 
     return init_flag
 
-def shut_down_amdsmi():
+def amdsmi_cli_shutdown():
     """Shutdown AMDSMI instance
 
     Raises:
@@ -134,12 +135,15 @@ def shut_down_amdsmi():
 
 def signal_handler(sig, frame):
     logging.debug(f"Handling signal: {sig}")
-    sys.exit(0)
-
+    try:
+       sys.exit(0)
+    except Exception as e:
+        logging.error("Unable to cleanly shut down amd-smi-lib, exception: %s", str(type(e).__name__))
+        os._exit(0)
 
 if not AMDSMI_INITIALIZED:
-    AMDSMI_INIT_FLAG = init_amdsmi()
+    AMDSMI_INIT_FLAG = amdsmi_cli_init()
     AMDSMI_INITIALIZED = True
     signal.signal(signal.SIGINT, signal_handler)
     signal.signal(signal.SIGTERM, signal_handler)
-    atexit.register(shut_down_amdsmi)
+    atexit.register(amdsmi_cli_shutdown)

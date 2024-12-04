@@ -3,7 +3,7 @@
  * The University of Illinois/NCSA
  * Open Source License (NCSA)
  *
- * Copyright (c) 2023, Advanced Micro Devices, Inc.
+ * Copyright (c) 2024, Advanced Micro Devices, Inc.
  * All rights reserved.
  *
  * Developed by:
@@ -56,6 +56,7 @@ namespace smi {
 
 #define  AMD_SMI_INIT_FLAG_RESRV_TEST1 0x800000000000000  //!< Reserved for test
 
+#ifdef ENABLE_ESMI_LIB
 amdsmi_status_t AMDSmiSystem::get_cpu_family(uint32_t *cpu_family) {
     amdsmi_status_t ret;
     ret = static_cast<amdsmi_status_t>(esmi_cpu_family_get(cpu_family));
@@ -111,6 +112,7 @@ static amdsmi_status_t get_nr_cpu_sockets(uint32_t *num_socks) {
     }
     return AMDSMI_STATUS_SUCCESS;
 }
+#endif
 
 amdsmi_status_t AMDSmiSystem::init(uint64_t flags) {
     init_flag_ = flags;
@@ -120,9 +122,8 @@ amdsmi_status_t AMDSmiSystem::init(uint64_t flags) {
         amd_smi_status = populate_amd_gpu_devices();
         if (amd_smi_status != AMDSMI_STATUS_SUCCESS)
             return amd_smi_status;
-#ifdef ENABLE_ESMI_LIB
     }
-
+#ifdef ENABLE_ESMI_LIB
     if (flags & AMDSMI_INIT_AMD_CPUS) {
         amd_smi_status = populate_amd_cpus();
         if (amd_smi_status != AMDSMI_STATUS_SUCCESS)
@@ -130,6 +131,7 @@ amdsmi_status_t AMDSmiSystem::init(uint64_t flags) {
     }
 #endif
     return AMDSMI_STATUS_SUCCESS;
+
 }
 
 #ifdef ENABLE_ESMI_LIB
@@ -175,8 +177,6 @@ amdsmi_status_t AMDSmiSystem::populate_amd_cpus() {
 
     return AMDSMI_STATUS_SUCCESS;
 }
-
-
 #endif
 
 amdsmi_status_t AMDSmiSystem::populate_amd_gpu_devices() {
@@ -237,7 +237,20 @@ amdsmi_status_t AMDSmiSystem::get_gpu_socket_id(uint32_t index,
         return amd::smi::rsmi_to_amdsmi_status(ret);
     }
 
+/**
+*  | Name         | Field   | KFD property       KFD -> PCIe ID (uint64_t)
+*  -------------- | ------- | ---------------- | ---------------------------- |
+*  | Domain       | [63:32] | "domain"         | (DOMAIN & 0xFFFFFFFF) << 32  |
+*  | Partition id | [31:28] | "location id"    | (LOCATION & 0xF0000000)      |
+*  | Reserved     | [27:16] | "location id"    | N/A                          |
+*  | Bus          | [15: 8] | "location id"    | (LOCATION & 0xFF00)          |
+*  | Device       | [ 7: 3] | "location id"    | (LOCATION & 0xF8)            |
+*  | Function     | [ 2: 0] | "location id"    | (LOCATION & 0x7)             |
+*/
+
     uint64_t domain = (bdfid >> 32) & 0xffffffff;
+    // may need to identify with partition_id in the future as well... TBD
+    uint64_t partition_id = (bdfid >> 28) & 0xf;
     uint64_t bus = (bdfid >> 8) & 0xff;
     uint64_t device_id = (bdfid >> 3) & 0x1f;
     uint64_t function = bdfid & 0x7;
@@ -246,8 +259,8 @@ amdsmi_status_t AMDSmiSystem::get_gpu_socket_id(uint32_t index,
     // represents a physical device.
     std::stringstream ss;
     ss << std::setfill('0') << std::uppercase << std::hex
-        << std::setw(4) << domain << ":" << std::setw(2) << bus << ":"
-        << std::setw(2) << device_id;
+       << std::setw(4) << domain << ":" << std::setw(2) << bus << ":"
+       << std::setw(2) << device_id;
     socket_id = ss.str();
     return AMDSMI_STATUS_SUCCESS;
 }

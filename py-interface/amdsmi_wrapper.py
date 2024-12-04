@@ -1,6 +1,6 @@
 
 #
-# Copyright (C) 2023 Advanced Micro Devices. All rights reserved.
+# Copyright (C) 2024 Advanced Micro Devices. All rights reserved.
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy of
 # this software and associated documentation files (the "Software"), to deal in
@@ -181,16 +181,6 @@ try:
 except OSError as error:
     print(error)
     print("Unable to find amdsmi library try installing amd-smi-lib from your package manager")
-class FunctionFactoryStub:
-    def __getattr__(self, _):
-      return ctypes.CFUNCTYPE(lambda y:y)
-
-# libraries['FIXME_STUB'] explanation
-# As you did not list (-l libraryname.so) a library that exports this function
-# This is a non-working stub instead. 
-# You can either re-run clan2py with -l /path/to/library.so
-# Or manually fix this by comment the ctypes.CDLL loading
-_libraries['FIXME_STUB'] = FunctionFactoryStub() #  ctypes.CDLL('FIXME_STUB')
 
 
 
@@ -377,21 +367,38 @@ AMDSMI_CLK_TYPE_DCLK1 = 9
 AMDSMI_CLK_TYPE__MAX = 9
 amdsmi_clk_type_t = ctypes.c_uint32 # enum
 
+# values for enumeration 'amdsmi_accelerator_partition_type_t'
+amdsmi_accelerator_partition_type_t__enumvalues = {
+    0: 'AMDSMI_ACCELERATOR_PARTITION_INVALID',
+    1: 'AMDSMI_ACCELERATOR_PARTITION_SPX',
+    2: 'AMDSMI_ACCELERATOR_PARTITION_DPX',
+    3: 'AMDSMI_ACCELERATOR_PARTITION_TPX',
+    4: 'AMDSMI_ACCELERATOR_PARTITION_QPX',
+    5: 'AMDSMI_ACCELERATOR_PARTITION_CPX',
+}
+AMDSMI_ACCELERATOR_PARTITION_INVALID = 0
+AMDSMI_ACCELERATOR_PARTITION_SPX = 1
+AMDSMI_ACCELERATOR_PARTITION_DPX = 2
+AMDSMI_ACCELERATOR_PARTITION_TPX = 3
+AMDSMI_ACCELERATOR_PARTITION_QPX = 4
+AMDSMI_ACCELERATOR_PARTITION_CPX = 5
+amdsmi_accelerator_partition_type_t = ctypes.c_uint32 # enum
+
 # values for enumeration 'amdsmi_compute_partition_type_t'
 amdsmi_compute_partition_type_t__enumvalues = {
     0: 'AMDSMI_COMPUTE_PARTITION_INVALID',
-    1: 'AMDSMI_COMPUTE_PARTITION_CPX',
-    2: 'AMDSMI_COMPUTE_PARTITION_SPX',
-    3: 'AMDSMI_COMPUTE_PARTITION_DPX',
-    4: 'AMDSMI_COMPUTE_PARTITION_TPX',
-    5: 'AMDSMI_COMPUTE_PARTITION_QPX',
+    1: 'AMDSMI_COMPUTE_PARTITION_SPX',
+    2: 'AMDSMI_COMPUTE_PARTITION_DPX',
+    3: 'AMDSMI_COMPUTE_PARTITION_TPX',
+    4: 'AMDSMI_COMPUTE_PARTITION_QPX',
+    5: 'AMDSMI_COMPUTE_PARTITION_CPX',
 }
 AMDSMI_COMPUTE_PARTITION_INVALID = 0
-AMDSMI_COMPUTE_PARTITION_CPX = 1
-AMDSMI_COMPUTE_PARTITION_SPX = 2
-AMDSMI_COMPUTE_PARTITION_DPX = 3
-AMDSMI_COMPUTE_PARTITION_TPX = 4
-AMDSMI_COMPUTE_PARTITION_QPX = 5
+AMDSMI_COMPUTE_PARTITION_SPX = 1
+AMDSMI_COMPUTE_PARTITION_DPX = 2
+AMDSMI_COMPUTE_PARTITION_TPX = 3
+AMDSMI_COMPUTE_PARTITION_QPX = 4
+AMDSMI_COMPUTE_PARTITION_CPX = 5
 amdsmi_compute_partition_type_t = ctypes.c_uint32 # enum
 
 # values for enumeration 'amdsmi_memory_partition_type_t'
@@ -710,6 +717,34 @@ struct_amdsmi_vram_usage_t._fields_ = [
 ]
 
 amdsmi_vram_usage_t = struct_amdsmi_vram_usage_t
+class struct_amdsmi_violation_status_t(Structure):
+    pass
+
+struct_amdsmi_violation_status_t._pack_ = 1 # source:False
+struct_amdsmi_violation_status_t._fields_ = [
+    ('reference_timestamp', ctypes.c_uint64),
+    ('violation_timestamp', ctypes.c_uint64),
+    ('acc_counter', ctypes.c_uint64),
+    ('acc_prochot_thrm', ctypes.c_uint64),
+    ('acc_ppt_pwr', ctypes.c_uint64),
+    ('acc_socket_thrm', ctypes.c_uint64),
+    ('acc_vr_thrm', ctypes.c_uint64),
+    ('acc_hbm_thrm', ctypes.c_uint64),
+    ('per_prochot_thrm', ctypes.c_uint64),
+    ('per_ppt_pwr', ctypes.c_uint64),
+    ('per_socket_thrm', ctypes.c_uint64),
+    ('per_vr_thrm', ctypes.c_uint64),
+    ('per_hbm_thrm', ctypes.c_uint64),
+    ('active_prochot_thrm', ctypes.c_ubyte),
+    ('active_ppt_pwr', ctypes.c_ubyte),
+    ('active_socket_thrm', ctypes.c_ubyte),
+    ('active_vr_thrm', ctypes.c_ubyte),
+    ('active_hbm_thrm', ctypes.c_ubyte),
+    ('PADDING_0', ctypes.c_ubyte * 3),
+    ('reserved', ctypes.c_uint64 * 30),
+]
+
+amdsmi_violation_status_t = struct_amdsmi_violation_status_t
 class struct_amdsmi_frequency_range_t(Structure):
     pass
 
@@ -774,7 +809,9 @@ struct_pcie_metric_._fields_ = [
     ('pcie_replay_roll_over_count', ctypes.c_uint64),
     ('pcie_nak_sent_count', ctypes.c_uint64),
     ('pcie_nak_received_count', ctypes.c_uint64),
-    ('reserved', ctypes.c_uint64 * 13),
+    ('pcie_lc_perf_other_end_recovery_count', ctypes.c_uint32),
+    ('PADDING_2', ctypes.c_ubyte * 4),
+    ('reserved', ctypes.c_uint64 * 12),
 ]
 
 class struct_pcie_static_(Structure):
@@ -901,22 +938,78 @@ struct_amdsmi_asic_info_t._fields_ = [
     ('rev_id', ctypes.c_uint32),
     ('asic_serial', ctypes.c_char * 32),
     ('oam_id', ctypes.c_uint32),
-    ('reserved', ctypes.c_uint32 * 18),
+    ('num_of_compute_units', ctypes.c_uint32),
+    ('PADDING_0', ctypes.c_ubyte * 4),
+    ('target_graphics_version', ctypes.c_uint64),
+    ('reserved', ctypes.c_uint32 * 15),
+    ('PADDING_1', ctypes.c_ubyte * 4),
 ]
 
 amdsmi_asic_info_t = struct_amdsmi_asic_info_t
+class struct_amdsmi_kfd_info_t(Structure):
+    pass
+
+struct_amdsmi_kfd_info_t._pack_ = 1 # source:False
+struct_amdsmi_kfd_info_t._fields_ = [
+    ('kfd_id', ctypes.c_uint64),
+    ('node_id', ctypes.c_uint32),
+    ('current_partition_id', ctypes.c_uint32),
+    ('reserved', ctypes.c_uint32 * 12),
+]
+
+amdsmi_kfd_info_t = struct_amdsmi_kfd_info_t
+class union_amdsmi_nps_caps_t(Union):
+    pass
+
+class struct_nps_flags_(Structure):
+    pass
+
+struct_nps_flags_._pack_ = 1 # source:False
+struct_nps_flags_._fields_ = [
+    ('nps1_cap', ctypes.c_uint32, 1),
+    ('nps2_cap', ctypes.c_uint32, 1),
+    ('nps4_cap', ctypes.c_uint32, 1),
+    ('nps8_cap', ctypes.c_uint32, 1),
+    ('reserved', ctypes.c_uint32, 28),
+]
+
+union_amdsmi_nps_caps_t._pack_ = 1 # source:False
+union_amdsmi_nps_caps_t._fields_ = [
+    ('amdsmi_nps_flags_t', struct_nps_flags_),
+    ('nps_cap_mask', ctypes.c_uint32),
+]
+
+amdsmi_nps_caps_t = union_amdsmi_nps_caps_t
+class struct_amdsmi_accelerator_partition_profile_t(Structure):
+    pass
+
+struct_amdsmi_accelerator_partition_profile_t._pack_ = 1 # source:False
+struct_amdsmi_accelerator_partition_profile_t._fields_ = [
+    ('profile_type', amdsmi_accelerator_partition_type_t),
+    ('num_partitions', ctypes.c_uint32),
+    ('memory_caps', amdsmi_nps_caps_t),
+    ('profile_index', ctypes.c_uint32),
+    ('num_resources', ctypes.c_uint32),
+    ('resources', ctypes.c_uint32 * 32 * 8),
+    ('PADDING_0', ctypes.c_ubyte * 4),
+    ('reserved', ctypes.c_uint64 * 13),
+]
+
+amdsmi_accelerator_partition_profile_t = struct_amdsmi_accelerator_partition_profile_t
 
 # values for enumeration 'amdsmi_link_type_t'
 amdsmi_link_type_t__enumvalues = {
-    0: 'AMDSMI_LINK_TYPE_PCIE',
+    0: 'AMDSMI_LINK_TYPE_INTERNAL',
     1: 'AMDSMI_LINK_TYPE_XGMI',
-    2: 'AMDSMI_LINK_TYPE_NOT_APPLICABLE',
-    3: 'AMDSMI_LINK_TYPE_UNKNOWN',
+    2: 'AMDSMI_LINK_TYPE_PCIE',
+    3: 'AMDSMI_LINK_TYPE_NOT_APPLICABLE',
+    4: 'AMDSMI_LINK_TYPE_UNKNOWN',
 }
-AMDSMI_LINK_TYPE_PCIE = 0
+AMDSMI_LINK_TYPE_INTERNAL = 0
 AMDSMI_LINK_TYPE_XGMI = 1
-AMDSMI_LINK_TYPE_NOT_APPLICABLE = 2
-AMDSMI_LINK_TYPE_UNKNOWN = 3
+AMDSMI_LINK_TYPE_PCIE = 2
+AMDSMI_LINK_TYPE_NOT_APPLICABLE = 3
+AMDSMI_LINK_TYPE_UNKNOWN = 4
 amdsmi_link_type_t = ctypes.c_uint32 # enum
 class struct_amdsmi_link_metrics_t(Structure):
     pass
@@ -953,7 +1046,9 @@ struct_amdsmi_vram_info_t._fields_ = [
     ('vram_type', amdsmi_vram_type_t),
     ('vram_vendor', amdsmi_vram_vendor_type_t),
     ('vram_size', ctypes.c_uint64),
-    ('reserved', ctypes.c_uint64 * 6),
+    ('vram_bit_width', ctypes.c_uint32),
+    ('PADDING_0', ctypes.c_ubyte * 4),
+    ('reserved', ctypes.c_uint64 * 5),
 ]
 
 amdsmi_vram_info_t = struct_amdsmi_vram_info_t
@@ -1062,6 +1157,19 @@ struct_amdsmi_proc_info_t._fields_ = [
 ]
 
 amdsmi_proc_info_t = struct_amdsmi_proc_info_t
+class struct_amdsmi_p2p_capability_t(Structure):
+    pass
+
+struct_amdsmi_p2p_capability_t._pack_ = 1 # source:False
+struct_amdsmi_p2p_capability_t._fields_ = [
+    ('is_iolink_coherent', ctypes.c_ubyte),
+    ('is_iolink_atomics_32bit', ctypes.c_ubyte),
+    ('is_iolink_atomics_64bit', ctypes.c_ubyte),
+    ('is_iolink_dma', ctypes.c_ubyte),
+    ('is_iolink_bi_directional', ctypes.c_ubyte),
+]
+
+amdsmi_p2p_capability_t = struct_amdsmi_p2p_capability_t
 
 # values for enumeration 'amdsmi_dev_perf_level_t'
 amdsmi_dev_perf_level_t__enumvalues = {
@@ -1351,6 +1459,15 @@ AMDSMI_GPU_BLOCK_LAST = 262144
 AMDSMI_GPU_BLOCK_RESERVED = 9223372036854775808
 amdsmi_gpu_block_t = ctypes.c_uint64 # enum
 
+# values for enumeration 'amdsmi_clk_limit_type_t'
+amdsmi_clk_limit_type_t__enumvalues = {
+    0: 'CLK_LIMIT_MIN',
+    1: 'CLK_LIMIT_MAX',
+}
+CLK_LIMIT_MIN = 0
+CLK_LIMIT_MAX = 1
+amdsmi_clk_limit_type_t = ctypes.c_uint32 # enum
+
 # values for enumeration 'amdsmi_ras_err_state_t'
 amdsmi_ras_err_state_t__enumvalues = {
     0: 'AMDSMI_RAS_ERR_STATE_NONE',
@@ -1443,12 +1560,20 @@ amdsmi_utilization_counter_type_t__enumvalues = {
     0: 'AMDSMI_UTILIZATION_COUNTER_FIRST',
     0: 'AMDSMI_COARSE_GRAIN_GFX_ACTIVITY',
     1: 'AMDSMI_COARSE_GRAIN_MEM_ACTIVITY',
-    1: 'AMDSMI_UTILIZATION_COUNTER_LAST',
+    2: 'AMDSMI_COARSE_DECODER_ACTIVITY',
+    100: 'AMDSMI_FINE_GRAIN_GFX_ACTIVITY',
+    101: 'AMDSMI_FINE_GRAIN_MEM_ACTIVITY',
+    102: 'AMDSMI_FINE_DECODER_ACTIVITY',
+    102: 'AMDSMI_UTILIZATION_COUNTER_LAST',
 }
 AMDSMI_UTILIZATION_COUNTER_FIRST = 0
 AMDSMI_COARSE_GRAIN_GFX_ACTIVITY = 0
 AMDSMI_COARSE_GRAIN_MEM_ACTIVITY = 1
-AMDSMI_UTILIZATION_COUNTER_LAST = 1
+AMDSMI_COARSE_DECODER_ACTIVITY = 2
+AMDSMI_FINE_GRAIN_GFX_ACTIVITY = 100
+AMDSMI_FINE_GRAIN_MEM_ACTIVITY = 101
+AMDSMI_FINE_DECODER_ACTIVITY = 102
+AMDSMI_UTILIZATION_COUNTER_LAST = 102
 amdsmi_utilization_counter_type_t = ctypes.c_uint32 # enum
 
 # values for enumeration 'amdsmi_power_type_t'
@@ -1469,6 +1594,9 @@ struct_amdsmi_utilization_counter_t._fields_ = [
     ('type', amdsmi_utilization_counter_type_t),
     ('PADDING_0', ctypes.c_ubyte * 4),
     ('value', ctypes.c_uint64),
+    ('fine_value', ctypes.c_uint64 * 4),
+    ('fine_value_count', ctypes.c_uint16),
+    ('PADDING_1', ctypes.c_ubyte * 6),
 ]
 
 amdsmi_utilization_counter_t = struct_amdsmi_utilization_counter_t
@@ -1606,6 +1734,17 @@ struct_amd_metrics_table_header_t._fields_ = [
 ]
 
 amd_metrics_table_header_t = struct_amd_metrics_table_header_t
+class struct_amdsmi_gpu_xcp_metrics_t(Structure):
+    pass
+
+struct_amdsmi_gpu_xcp_metrics_t._pack_ = 1 # source:False
+struct_amdsmi_gpu_xcp_metrics_t._fields_ = [
+    ('gfx_busy_inst', ctypes.c_uint32 * 8),
+    ('jpeg_busy', ctypes.c_uint16 * 32),
+    ('vcn_busy', ctypes.c_uint16 * 4),
+    ('gfx_busy_acc', ctypes.c_uint64 * 8),
+]
+
 class struct_amdsmi_gpu_metrics_t(Structure):
     pass
 
@@ -1673,6 +1812,17 @@ struct_amdsmi_gpu_metrics_t._fields_ = [
     ('jpeg_activity', ctypes.c_uint16 * 32),
     ('pcie_nak_sent_count_acc', ctypes.c_uint32),
     ('pcie_nak_rcvd_count_acc', ctypes.c_uint32),
+    ('accumulation_counter', ctypes.c_uint64),
+    ('prochot_residency_acc', ctypes.c_uint64),
+    ('ppt_residency_acc', ctypes.c_uint64),
+    ('socket_thm_residency_acc', ctypes.c_uint64),
+    ('vr_thm_residency_acc', ctypes.c_uint64),
+    ('hbm_thm_residency_acc', ctypes.c_uint64),
+    ('num_partition', ctypes.c_uint16),
+    ('PADDING_4', ctypes.c_ubyte * 6),
+    ('xcp_stats', struct_amdsmi_gpu_xcp_metrics_t * 8),
+    ('pcie_lc_perf_other_end_recovery', ctypes.c_uint32),
+    ('PADDING_5', ctypes.c_ubyte * 4),
 ]
 
 amdsmi_gpu_metrics_t = struct_amdsmi_gpu_metrics_t
@@ -1737,6 +1887,18 @@ struct_amdsmi_process_info_t._fields_ = [
 ]
 
 amdsmi_process_info_t = struct_amdsmi_process_info_t
+class struct_amdsmi_topology_nearest_t(Structure):
+    pass
+
+struct_amdsmi_topology_nearest_t._pack_ = 1 # source:False
+struct_amdsmi_topology_nearest_t._fields_ = [
+    ('count', ctypes.c_uint32),
+    ('PADDING_0', ctypes.c_ubyte * 4),
+    ('processor_list', ctypes.POINTER(None) * 32),
+    ('reserved', ctypes.c_uint64 * 15),
+]
+
+amdsmi_topology_nearest_t = struct_amdsmi_topology_nearest_t
 class struct_amdsmi_smu_fw_version_t(Structure):
     pass
 
@@ -1909,9 +2071,9 @@ amdsmi_shut_down.argtypes = []
 amdsmi_get_socket_handles = _libraries['libamd_smi.so'].amdsmi_get_socket_handles
 amdsmi_get_socket_handles.restype = amdsmi_status_t
 amdsmi_get_socket_handles.argtypes = [ctypes.POINTER(ctypes.c_uint32), ctypes.POINTER(ctypes.POINTER(None))]
-amdsmi_get_cpusocket_handles = _libraries['FIXME_STUB'].amdsmi_get_cpusocket_handles
-amdsmi_get_cpusocket_handles.restype = amdsmi_status_t
-amdsmi_get_cpusocket_handles.argtypes = [ctypes.POINTER(ctypes.c_uint32), ctypes.POINTER(ctypes.POINTER(None))]
+amdsmi_get_cpu_handles = _libraries['libamd_smi.so'].amdsmi_get_cpu_handles
+amdsmi_get_cpu_handles.restype = amdsmi_status_t
+amdsmi_get_cpu_handles.argtypes = [ctypes.POINTER(ctypes.c_uint32), ctypes.POINTER(ctypes.POINTER(None))]
 size_t = ctypes.c_uint64
 amdsmi_get_socket_info = _libraries['libamd_smi.so'].amdsmi_get_socket_info
 amdsmi_get_socket_info.restype = amdsmi_status_t
@@ -1928,9 +2090,9 @@ amdsmi_get_processor_handles_by_type.argtypes = [amdsmi_socket_handle, processor
 amdsmi_get_processor_handles = _libraries['libamd_smi.so'].amdsmi_get_processor_handles
 amdsmi_get_processor_handles.restype = amdsmi_status_t
 amdsmi_get_processor_handles.argtypes = [amdsmi_socket_handle, ctypes.POINTER(ctypes.c_uint32), ctypes.POINTER(ctypes.POINTER(None))]
-amdsmi_get_cpucore_handles = _libraries['FIXME_STUB'].amdsmi_get_cpucore_handles
+amdsmi_get_cpucore_handles = _libraries['libamd_smi.so'].amdsmi_get_cpucore_handles
 amdsmi_get_cpucore_handles.restype = amdsmi_status_t
-amdsmi_get_cpucore_handles.argtypes = [amdsmi_cpusocket_handle, ctypes.POINTER(ctypes.c_uint32), ctypes.POINTER(ctypes.POINTER(None))]
+amdsmi_get_cpucore_handles.argtypes = [ctypes.POINTER(ctypes.c_uint32), ctypes.POINTER(ctypes.POINTER(None))]
 amdsmi_get_processor_type = _libraries['libamd_smi.so'].amdsmi_get_processor_type
 amdsmi_get_processor_type.restype = amdsmi_status_t
 amdsmi_get_processor_type.argtypes = [amdsmi_processor_handle, ctypes.POINTER(processor_type_t)]
@@ -2027,7 +2189,7 @@ amdsmi_set_gpu_fan_speed.restype = amdsmi_status_t
 amdsmi_set_gpu_fan_speed.argtypes = [amdsmi_processor_handle, uint32_t, uint64_t]
 amdsmi_get_utilization_count = _libraries['libamd_smi.so'].amdsmi_get_utilization_count
 amdsmi_get_utilization_count.restype = amdsmi_status_t
-amdsmi_get_utilization_count.argtypes = [amdsmi_processor_handle, struct_amdsmi_utilization_counter_t * 0, uint32_t, ctypes.POINTER(ctypes.c_uint64)]
+amdsmi_get_utilization_count.argtypes = [amdsmi_processor_handle, ctypes.POINTER(struct_amdsmi_utilization_counter_t), uint32_t, ctypes.POINTER(ctypes.c_uint64)]
 amdsmi_get_gpu_perf_level = _libraries['libamd_smi.so'].amdsmi_get_gpu_perf_level
 amdsmi_get_gpu_perf_level.restype = amdsmi_status_t
 amdsmi_get_gpu_perf_level.argtypes = [amdsmi_processor_handle, ctypes.POINTER(amdsmi_dev_perf_level_t)]
@@ -2037,6 +2199,9 @@ amdsmi_set_gpu_perf_determinism_mode.argtypes = [amdsmi_processor_handle, uint64
 amdsmi_get_gpu_overdrive_level = _libraries['libamd_smi.so'].amdsmi_get_gpu_overdrive_level
 amdsmi_get_gpu_overdrive_level.restype = amdsmi_status_t
 amdsmi_get_gpu_overdrive_level.argtypes = [amdsmi_processor_handle, ctypes.POINTER(ctypes.c_uint32)]
+amdsmi_get_gpu_mem_overdrive_level = _libraries['libamd_smi.so'].amdsmi_get_gpu_mem_overdrive_level
+amdsmi_get_gpu_mem_overdrive_level.restype = amdsmi_status_t
+amdsmi_get_gpu_mem_overdrive_level.argtypes = [amdsmi_processor_handle, ctypes.POINTER(ctypes.c_uint32)]
 amdsmi_get_clk_freq = _libraries['libamd_smi.so'].amdsmi_get_clk_freq
 amdsmi_get_clk_freq.restype = amdsmi_status_t
 amdsmi_get_clk_freq.argtypes = [amdsmi_processor_handle, amdsmi_clk_type_t, ctypes.POINTER(struct_amdsmi_frequencies_t)]
@@ -2061,6 +2226,12 @@ amdsmi_get_gpu_reg_table_info.argtypes = [amdsmi_processor_handle, amdsmi_reg_ty
 amdsmi_set_gpu_clk_range = _libraries['libamd_smi.so'].amdsmi_set_gpu_clk_range
 amdsmi_set_gpu_clk_range.restype = amdsmi_status_t
 amdsmi_set_gpu_clk_range.argtypes = [amdsmi_processor_handle, uint64_t, uint64_t, amdsmi_clk_type_t]
+amdsmi_set_gpu_clk_limit = _libraries['libamd_smi.so'].amdsmi_set_gpu_clk_limit
+amdsmi_set_gpu_clk_limit.restype = amdsmi_status_t
+amdsmi_set_gpu_clk_limit.argtypes = [amdsmi_processor_handle, amdsmi_clk_type_t, amdsmi_clk_limit_type_t, uint64_t]
+amdsmi_free_name_value_pairs = _libraries['libamd_smi.so'].amdsmi_free_name_value_pairs
+amdsmi_free_name_value_pairs.restype = None
+amdsmi_free_name_value_pairs.argtypes = [ctypes.POINTER(None)]
 amdsmi_set_gpu_od_clk_info = _libraries['libamd_smi.so'].amdsmi_set_gpu_od_clk_info
 amdsmi_set_gpu_od_clk_info.restype = amdsmi_status_t
 amdsmi_set_gpu_od_clk_info.argtypes = [amdsmi_processor_handle, amdsmi_freq_ind_t, uint64_t, amdsmi_clk_type_t]
@@ -2169,24 +2340,24 @@ amdsmi_topo_get_link_type.argtypes = [amdsmi_processor_handle, amdsmi_processor_
 amdsmi_is_P2P_accessible = _libraries['libamd_smi.so'].amdsmi_is_P2P_accessible
 amdsmi_is_P2P_accessible.restype = amdsmi_status_t
 amdsmi_is_P2P_accessible.argtypes = [amdsmi_processor_handle, amdsmi_processor_handle, ctypes.POINTER(ctypes.c_bool)]
+amdsmi_topo_get_p2p_status = _libraries['libamd_smi.so'].amdsmi_topo_get_p2p_status
+amdsmi_topo_get_p2p_status.restype = amdsmi_status_t
+amdsmi_topo_get_p2p_status.argtypes = [amdsmi_processor_handle, amdsmi_processor_handle, ctypes.POINTER(amdsmi_io_link_type_t), ctypes.POINTER(struct_amdsmi_p2p_capability_t)]
 amdsmi_get_gpu_compute_partition = _libraries['libamd_smi.so'].amdsmi_get_gpu_compute_partition
 amdsmi_get_gpu_compute_partition.restype = amdsmi_status_t
 amdsmi_get_gpu_compute_partition.argtypes = [amdsmi_processor_handle, ctypes.POINTER(ctypes.c_char), uint32_t]
 amdsmi_set_gpu_compute_partition = _libraries['libamd_smi.so'].amdsmi_set_gpu_compute_partition
 amdsmi_set_gpu_compute_partition.restype = amdsmi_status_t
 amdsmi_set_gpu_compute_partition.argtypes = [amdsmi_processor_handle, amdsmi_compute_partition_type_t]
-amdsmi_reset_gpu_compute_partition = _libraries['libamd_smi.so'].amdsmi_reset_gpu_compute_partition
-amdsmi_reset_gpu_compute_partition.restype = amdsmi_status_t
-amdsmi_reset_gpu_compute_partition.argtypes = [amdsmi_processor_handle]
 amdsmi_get_gpu_memory_partition = _libraries['libamd_smi.so'].amdsmi_get_gpu_memory_partition
 amdsmi_get_gpu_memory_partition.restype = amdsmi_status_t
 amdsmi_get_gpu_memory_partition.argtypes = [amdsmi_processor_handle, ctypes.POINTER(ctypes.c_char), uint32_t]
 amdsmi_set_gpu_memory_partition = _libraries['libamd_smi.so'].amdsmi_set_gpu_memory_partition
 amdsmi_set_gpu_memory_partition.restype = amdsmi_status_t
 amdsmi_set_gpu_memory_partition.argtypes = [amdsmi_processor_handle, amdsmi_memory_partition_type_t]
-amdsmi_reset_gpu_memory_partition = _libraries['libamd_smi.so'].amdsmi_reset_gpu_memory_partition
-amdsmi_reset_gpu_memory_partition.restype = amdsmi_status_t
-amdsmi_reset_gpu_memory_partition.argtypes = [amdsmi_processor_handle]
+amdsmi_get_gpu_accelerator_partition_profile = _libraries['libamd_smi.so'].amdsmi_get_gpu_accelerator_partition_profile
+amdsmi_get_gpu_accelerator_partition_profile.restype = amdsmi_status_t
+amdsmi_get_gpu_accelerator_partition_profile.argtypes = [amdsmi_processor_handle, ctypes.POINTER(struct_amdsmi_accelerator_partition_profile_t), ctypes.POINTER(ctypes.c_uint32)]
 amdsmi_init_gpu_event_notification = _libraries['libamd_smi.so'].amdsmi_init_gpu_event_notification
 amdsmi_init_gpu_event_notification.restype = amdsmi_status_t
 amdsmi_init_gpu_event_notification.argtypes = [amdsmi_processor_handle]
@@ -2211,6 +2382,9 @@ amdsmi_get_gpu_driver_info.argtypes = [amdsmi_processor_handle, ctypes.POINTER(s
 amdsmi_get_gpu_asic_info = _libraries['libamd_smi.so'].amdsmi_get_gpu_asic_info
 amdsmi_get_gpu_asic_info.restype = amdsmi_status_t
 amdsmi_get_gpu_asic_info.argtypes = [amdsmi_processor_handle, ctypes.POINTER(struct_amdsmi_asic_info_t)]
+amdsmi_get_gpu_kfd_info = _libraries['libamd_smi.so'].amdsmi_get_gpu_kfd_info
+amdsmi_get_gpu_kfd_info.restype = amdsmi_status_t
+amdsmi_get_gpu_kfd_info.argtypes = [amdsmi_processor_handle, ctypes.POINTER(struct_amdsmi_kfd_info_t)]
 amdsmi_get_gpu_vram_info = _libraries['libamd_smi.so'].amdsmi_get_gpu_vram_info
 amdsmi_get_gpu_vram_info.restype = amdsmi_status_t
 amdsmi_get_gpu_vram_info.argtypes = [amdsmi_processor_handle, ctypes.POINTER(struct_amdsmi_vram_info_t)]
@@ -2247,12 +2421,18 @@ amdsmi_get_clock_info.argtypes = [amdsmi_processor_handle, amdsmi_clk_type_t, ct
 amdsmi_get_gpu_vram_usage = _libraries['libamd_smi.so'].amdsmi_get_gpu_vram_usage
 amdsmi_get_gpu_vram_usage.restype = amdsmi_status_t
 amdsmi_get_gpu_vram_usage.argtypes = [amdsmi_processor_handle, ctypes.POINTER(struct_amdsmi_vram_usage_t)]
+amdsmi_get_violation_status = _libraries['libamd_smi.so'].amdsmi_get_violation_status
+amdsmi_get_violation_status.restype = amdsmi_status_t
+amdsmi_get_violation_status.argtypes = [amdsmi_processor_handle, ctypes.POINTER(struct_amdsmi_violation_status_t)]
 amdsmi_get_gpu_process_list = _libraries['libamd_smi.so'].amdsmi_get_gpu_process_list
 amdsmi_get_gpu_process_list.restype = amdsmi_status_t
 amdsmi_get_gpu_process_list.argtypes = [amdsmi_processor_handle, ctypes.POINTER(ctypes.c_uint32), ctypes.POINTER(struct_amdsmi_proc_info_t)]
 amdsmi_get_gpu_total_ecc_count = _libraries['libamd_smi.so'].amdsmi_get_gpu_total_ecc_count
 amdsmi_get_gpu_total_ecc_count.restype = amdsmi_status_t
 amdsmi_get_gpu_total_ecc_count.argtypes = [amdsmi_processor_handle, ctypes.POINTER(struct_amdsmi_error_count_t)]
+amdsmi_get_link_topology_nearest = _libraries['libamd_smi.so'].amdsmi_get_link_topology_nearest
+amdsmi_get_link_topology_nearest.restype = amdsmi_status_t
+amdsmi_get_link_topology_nearest.argtypes = [amdsmi_processor_handle, amdsmi_link_type_t, ctypes.POINTER(struct_amdsmi_topology_nearest_t)]
 amdsmi_get_cpu_core_energy = _libraries['libamd_smi.so'].amdsmi_get_cpu_core_energy
 amdsmi_get_cpu_core_energy.restype = amdsmi_status_t
 amdsmi_get_cpu_core_energy.argtypes = [amdsmi_processor_handle, ctypes.POINTER(ctypes.c_uint64)]
@@ -2381,7 +2561,12 @@ amdsmi_get_esmi_err_msg = _libraries['libamd_smi.so'].amdsmi_get_esmi_err_msg
 amdsmi_get_esmi_err_msg.restype = amdsmi_status_t
 amdsmi_get_esmi_err_msg.argtypes = [amdsmi_status_t, ctypes.POINTER(ctypes.POINTER(ctypes.c_char))]
 __all__ = \
-    ['AGG_BW0', 'AMDSMI_AVERAGE_POWER',
+    ['AGG_BW0', 'AMDSMI_ACCELERATOR_PARTITION_CPX',
+    'AMDSMI_ACCELERATOR_PARTITION_DPX',
+    'AMDSMI_ACCELERATOR_PARTITION_INVALID',
+    'AMDSMI_ACCELERATOR_PARTITION_QPX',
+    'AMDSMI_ACCELERATOR_PARTITION_SPX',
+    'AMDSMI_ACCELERATOR_PARTITION_TPX', 'AMDSMI_AVERAGE_POWER',
     'AMDSMI_CACHE_PROPERTY_CPU_CACHE',
     'AMDSMI_CACHE_PROPERTY_DATA_CACHE',
     'AMDSMI_CACHE_PROPERTY_ENABLED',
@@ -2396,6 +2581,7 @@ __all__ = \
     'AMDSMI_CLK_TYPE_SYS', 'AMDSMI_CLK_TYPE_VCLK0',
     'AMDSMI_CLK_TYPE_VCLK1', 'AMDSMI_CLK_TYPE__MAX',
     'AMDSMI_CNTR_CMD_START', 'AMDSMI_CNTR_CMD_STOP',
+    'AMDSMI_COARSE_DECODER_ACTIVITY',
     'AMDSMI_COARSE_GRAIN_GFX_ACTIVITY',
     'AMDSMI_COARSE_GRAIN_MEM_ACTIVITY',
     'AMDSMI_COMPUTE_PARTITION_CPX', 'AMDSMI_COMPUTE_PARTITION_DPX',
@@ -2428,25 +2614,27 @@ __all__ = \
     'AMDSMI_EVT_NOTIF_GPU_PRE_RESET', 'AMDSMI_EVT_NOTIF_LAST',
     'AMDSMI_EVT_NOTIF_NONE', 'AMDSMI_EVT_NOTIF_RING_HANG',
     'AMDSMI_EVT_NOTIF_THERMAL_THROTTLE', 'AMDSMI_EVT_NOTIF_VMFAULT',
-    'AMDSMI_FREQ_IND_INVALID', 'AMDSMI_FREQ_IND_MAX',
-    'AMDSMI_FREQ_IND_MIN', 'AMDSMI_FW_ID_ASD', 'AMDSMI_FW_ID_CP_CE',
-    'AMDSMI_FW_ID_CP_ME', 'AMDSMI_FW_ID_CP_MEC1',
-    'AMDSMI_FW_ID_CP_MEC2', 'AMDSMI_FW_ID_CP_MEC_JT1',
-    'AMDSMI_FW_ID_CP_MEC_JT2', 'AMDSMI_FW_ID_CP_MES',
-    'AMDSMI_FW_ID_CP_PFP', 'AMDSMI_FW_ID_CP_PM4', 'AMDSMI_FW_ID_DFC',
-    'AMDSMI_FW_ID_DMCU', 'AMDSMI_FW_ID_DMCU_ERAM',
-    'AMDSMI_FW_ID_DMCU_ISR', 'AMDSMI_FW_ID_DRV_CAP',
-    'AMDSMI_FW_ID_FIRST', 'AMDSMI_FW_ID_IMU_DRAM',
-    'AMDSMI_FW_ID_IMU_IRAM', 'AMDSMI_FW_ID_ISP', 'AMDSMI_FW_ID_MC',
-    'AMDSMI_FW_ID_MES_KIQ', 'AMDSMI_FW_ID_MES_STACK',
-    'AMDSMI_FW_ID_MES_THREAD1', 'AMDSMI_FW_ID_MES_THREAD1_STACK',
-    'AMDSMI_FW_ID_MMSCH', 'AMDSMI_FW_ID_PM', 'AMDSMI_FW_ID_PPTABLE',
-    'AMDSMI_FW_ID_PSP_BL', 'AMDSMI_FW_ID_PSP_DBG',
-    'AMDSMI_FW_ID_PSP_INTF', 'AMDSMI_FW_ID_PSP_KEYDB',
-    'AMDSMI_FW_ID_PSP_SOC', 'AMDSMI_FW_ID_PSP_SOSDRV',
-    'AMDSMI_FW_ID_PSP_SPL', 'AMDSMI_FW_ID_PSP_SYSDRV',
-    'AMDSMI_FW_ID_PSP_TOC', 'AMDSMI_FW_ID_REG_ACCESS_WHITELIST',
-    'AMDSMI_FW_ID_RLC', 'AMDSMI_FW_ID_RLCV_LX7', 'AMDSMI_FW_ID_RLC_P',
+    'AMDSMI_FINE_DECODER_ACTIVITY', 'AMDSMI_FINE_GRAIN_GFX_ACTIVITY',
+    'AMDSMI_FINE_GRAIN_MEM_ACTIVITY', 'AMDSMI_FREQ_IND_INVALID',
+    'AMDSMI_FREQ_IND_MAX', 'AMDSMI_FREQ_IND_MIN', 'AMDSMI_FW_ID_ASD',
+    'AMDSMI_FW_ID_CP_CE', 'AMDSMI_FW_ID_CP_ME',
+    'AMDSMI_FW_ID_CP_MEC1', 'AMDSMI_FW_ID_CP_MEC2',
+    'AMDSMI_FW_ID_CP_MEC_JT1', 'AMDSMI_FW_ID_CP_MEC_JT2',
+    'AMDSMI_FW_ID_CP_MES', 'AMDSMI_FW_ID_CP_PFP',
+    'AMDSMI_FW_ID_CP_PM4', 'AMDSMI_FW_ID_DFC', 'AMDSMI_FW_ID_DMCU',
+    'AMDSMI_FW_ID_DMCU_ERAM', 'AMDSMI_FW_ID_DMCU_ISR',
+    'AMDSMI_FW_ID_DRV_CAP', 'AMDSMI_FW_ID_FIRST',
+    'AMDSMI_FW_ID_IMU_DRAM', 'AMDSMI_FW_ID_IMU_IRAM',
+    'AMDSMI_FW_ID_ISP', 'AMDSMI_FW_ID_MC', 'AMDSMI_FW_ID_MES_KIQ',
+    'AMDSMI_FW_ID_MES_STACK', 'AMDSMI_FW_ID_MES_THREAD1',
+    'AMDSMI_FW_ID_MES_THREAD1_STACK', 'AMDSMI_FW_ID_MMSCH',
+    'AMDSMI_FW_ID_PM', 'AMDSMI_FW_ID_PPTABLE', 'AMDSMI_FW_ID_PSP_BL',
+    'AMDSMI_FW_ID_PSP_DBG', 'AMDSMI_FW_ID_PSP_INTF',
+    'AMDSMI_FW_ID_PSP_KEYDB', 'AMDSMI_FW_ID_PSP_SOC',
+    'AMDSMI_FW_ID_PSP_SOSDRV', 'AMDSMI_FW_ID_PSP_SPL',
+    'AMDSMI_FW_ID_PSP_SYSDRV', 'AMDSMI_FW_ID_PSP_TOC',
+    'AMDSMI_FW_ID_REG_ACCESS_WHITELIST', 'AMDSMI_FW_ID_RLC',
+    'AMDSMI_FW_ID_RLCV_LX7', 'AMDSMI_FW_ID_RLC_P',
     'AMDSMI_FW_ID_RLC_RESTORE_LIST_CNTL',
     'AMDSMI_FW_ID_RLC_RESTORE_LIST_GPM_MEM',
     'AMDSMI_FW_ID_RLC_RESTORE_LIST_SRM_MEM',
@@ -2485,11 +2673,11 @@ __all__ = \
     'AMDSMI_IOLINK_TYPE_NUMIOLINKTYPES',
     'AMDSMI_IOLINK_TYPE_PCIEXPRESS', 'AMDSMI_IOLINK_TYPE_SIZE',
     'AMDSMI_IOLINK_TYPE_UNDEFINED', 'AMDSMI_IOLINK_TYPE_XGMI',
-    'AMDSMI_LINK_TYPE_NOT_APPLICABLE', 'AMDSMI_LINK_TYPE_PCIE',
-    'AMDSMI_LINK_TYPE_UNKNOWN', 'AMDSMI_LINK_TYPE_XGMI',
-    'AMDSMI_MEMORY_PARTITION_NPS1', 'AMDSMI_MEMORY_PARTITION_NPS2',
-    'AMDSMI_MEMORY_PARTITION_NPS4', 'AMDSMI_MEMORY_PARTITION_NPS8',
-    'AMDSMI_MEMORY_PARTITION_UNKNOWN',
+    'AMDSMI_LINK_TYPE_INTERNAL', 'AMDSMI_LINK_TYPE_NOT_APPLICABLE',
+    'AMDSMI_LINK_TYPE_PCIE', 'AMDSMI_LINK_TYPE_UNKNOWN',
+    'AMDSMI_LINK_TYPE_XGMI', 'AMDSMI_MEMORY_PARTITION_NPS1',
+    'AMDSMI_MEMORY_PARTITION_NPS2', 'AMDSMI_MEMORY_PARTITION_NPS4',
+    'AMDSMI_MEMORY_PARTITION_NPS8', 'AMDSMI_MEMORY_PARTITION_UNKNOWN',
     'AMDSMI_MEM_PAGE_STATUS_PENDING',
     'AMDSMI_MEM_PAGE_STATUS_RESERVED',
     'AMDSMI_MEM_PAGE_STATUS_UNRESERVABLE', 'AMDSMI_MEM_TYPE_FIRST',
@@ -2580,24 +2768,28 @@ __all__ = \
     'AMDSMI_VRAM_VENDOR__PLACEHOLDER5', 'AMDSMI_VRAM_VENDOR__SAMSUNG',
     'AMDSMI_VRAM_VENDOR__WINBOND', 'AMDSMI_XGMI_STATUS_ERROR',
     'AMDSMI_XGMI_STATUS_MULTIPLE_ERRORS',
-    'AMDSMI_XGMI_STATUS_NO_ERRORS', 'RD_BW0', 'WR_BW0',
-    'amd_metrics_table_header_t', 'amdsmi_asic_info_t',
+    'AMDSMI_XGMI_STATUS_NO_ERRORS', 'CLK_LIMIT_MAX', 'CLK_LIMIT_MIN',
+    'RD_BW0', 'WR_BW0', 'amd_metrics_table_header_t',
+    'amdsmi_accelerator_partition_profile_t',
+    'amdsmi_accelerator_partition_type_t', 'amdsmi_asic_info_t',
     'amdsmi_bdf_t', 'amdsmi_bit_field_t', 'amdsmi_board_info_t',
     'amdsmi_cache_property_type_t', 'amdsmi_card_form_factor_t',
     'amdsmi_clean_gpu_local_data', 'amdsmi_clk_info_t',
-    'amdsmi_clk_type_t', 'amdsmi_compute_partition_type_t',
-    'amdsmi_container_types_t', 'amdsmi_counter_command_t',
-    'amdsmi_counter_value_t', 'amdsmi_cpu_apb_disable',
-    'amdsmi_cpu_apb_enable', 'amdsmi_cpusocket_handle',
-    'amdsmi_ddr_bw_metrics_t', 'amdsmi_dev_perf_level_t',
-    'amdsmi_dimm_power_t', 'amdsmi_dimm_thermal_t',
-    'amdsmi_dpm_level_t', 'amdsmi_dpm_policy_entry_t',
-    'amdsmi_dpm_policy_t', 'amdsmi_driver_info_t',
-    'amdsmi_engine_usage_t', 'amdsmi_error_count_t',
-    'amdsmi_event_group_t', 'amdsmi_event_handle_t',
-    'amdsmi_event_type_t', 'amdsmi_evt_notification_data_t',
+    'amdsmi_clk_limit_type_t', 'amdsmi_clk_type_t',
+    'amdsmi_compute_partition_type_t', 'amdsmi_container_types_t',
+    'amdsmi_counter_command_t', 'amdsmi_counter_value_t',
+    'amdsmi_cpu_apb_disable', 'amdsmi_cpu_apb_enable',
+    'amdsmi_cpusocket_handle', 'amdsmi_ddr_bw_metrics_t',
+    'amdsmi_dev_perf_level_t', 'amdsmi_dimm_power_t',
+    'amdsmi_dimm_thermal_t', 'amdsmi_dpm_level_t',
+    'amdsmi_dpm_policy_entry_t', 'amdsmi_dpm_policy_t',
+    'amdsmi_driver_info_t', 'amdsmi_engine_usage_t',
+    'amdsmi_error_count_t', 'amdsmi_event_group_t',
+    'amdsmi_event_handle_t', 'amdsmi_event_type_t',
+    'amdsmi_evt_notification_data_t',
     'amdsmi_evt_notification_type_t',
-    'amdsmi_first_online_core_on_cpu_socket', 'amdsmi_freq_ind_t',
+    'amdsmi_first_online_core_on_cpu_socket',
+    'amdsmi_free_name_value_pairs', 'amdsmi_freq_ind_t',
     'amdsmi_freq_volt_region_t', 'amdsmi_frequencies_t',
     'amdsmi_frequency_range_t', 'amdsmi_fw_block_t',
     'amdsmi_fw_info_t', 'amdsmi_get_clk_freq',
@@ -2610,8 +2802,9 @@ __all__ = \
     'amdsmi_get_cpu_dimm_power_consumption',
     'amdsmi_get_cpu_dimm_temp_range_and_refresh_rate',
     'amdsmi_get_cpu_dimm_thermal_sensor', 'amdsmi_get_cpu_family',
-    'amdsmi_get_cpu_fclk_mclk', 'amdsmi_get_cpu_hsmp_proto_ver',
-    'amdsmi_get_cpu_model', 'amdsmi_get_cpu_prochot_status',
+    'amdsmi_get_cpu_fclk_mclk', 'amdsmi_get_cpu_handles',
+    'amdsmi_get_cpu_hsmp_proto_ver', 'amdsmi_get_cpu_model',
+    'amdsmi_get_cpu_prochot_status',
     'amdsmi_get_cpu_pwr_svi_telemetry_all_rails',
     'amdsmi_get_cpu_smu_fw_version',
     'amdsmi_get_cpu_socket_c0_residency',
@@ -2622,8 +2815,9 @@ __all__ = \
     'amdsmi_get_cpu_socket_power', 'amdsmi_get_cpu_socket_power_cap',
     'amdsmi_get_cpu_socket_power_cap_max',
     'amdsmi_get_cpu_socket_temperature', 'amdsmi_get_cpucore_handles',
-    'amdsmi_get_cpusocket_handles', 'amdsmi_get_energy_count',
-    'amdsmi_get_esmi_err_msg', 'amdsmi_get_fw_info',
+    'amdsmi_get_energy_count', 'amdsmi_get_esmi_err_msg',
+    'amdsmi_get_fw_info',
+    'amdsmi_get_gpu_accelerator_partition_profile',
     'amdsmi_get_gpu_activity', 'amdsmi_get_gpu_asic_info',
     'amdsmi_get_gpu_available_counters',
     'amdsmi_get_gpu_bad_page_info', 'amdsmi_get_gpu_bdf_id',
@@ -2637,7 +2831,9 @@ __all__ = \
     'amdsmi_get_gpu_ecc_enabled', 'amdsmi_get_gpu_ecc_status',
     'amdsmi_get_gpu_event_notification', 'amdsmi_get_gpu_fan_rpms',
     'amdsmi_get_gpu_fan_speed', 'amdsmi_get_gpu_fan_speed_max',
-    'amdsmi_get_gpu_id', 'amdsmi_get_gpu_memory_partition',
+    'amdsmi_get_gpu_id', 'amdsmi_get_gpu_kfd_info',
+    'amdsmi_get_gpu_mem_overdrive_level',
+    'amdsmi_get_gpu_memory_partition',
     'amdsmi_get_gpu_memory_reserved_pages',
     'amdsmi_get_gpu_memory_total', 'amdsmi_get_gpu_memory_usage',
     'amdsmi_get_gpu_metrics_header_info',
@@ -2660,7 +2856,7 @@ __all__ = \
     'amdsmi_get_gpu_vram_info', 'amdsmi_get_gpu_vram_usage',
     'amdsmi_get_gpu_vram_vendor', 'amdsmi_get_hsmp_metrics_table',
     'amdsmi_get_hsmp_metrics_table_version', 'amdsmi_get_lib_version',
-    'amdsmi_get_link_metrics',
+    'amdsmi_get_link_metrics', 'amdsmi_get_link_topology_nearest',
     'amdsmi_get_minmax_bandwidth_between_processors',
     'amdsmi_get_pcie_info', 'amdsmi_get_power_cap_info',
     'amdsmi_get_power_info',
@@ -2672,9 +2868,9 @@ __all__ = \
     'amdsmi_get_soc_pstate', 'amdsmi_get_socket_handles',
     'amdsmi_get_socket_info', 'amdsmi_get_temp_metric',
     'amdsmi_get_threads_per_core', 'amdsmi_get_utilization_count',
-    'amdsmi_get_xgmi_info', 'amdsmi_get_xgmi_plpd',
-    'amdsmi_gpu_block_t', 'amdsmi_gpu_cache_info_t',
-    'amdsmi_gpu_control_counter',
+    'amdsmi_get_violation_status', 'amdsmi_get_xgmi_info',
+    'amdsmi_get_xgmi_plpd', 'amdsmi_gpu_block_t',
+    'amdsmi_gpu_cache_info_t', 'amdsmi_gpu_control_counter',
     'amdsmi_gpu_counter_group_supported', 'amdsmi_gpu_create_counter',
     'amdsmi_gpu_destroy_counter', 'amdsmi_gpu_metrics_t',
     'amdsmi_gpu_read_counter', 'amdsmi_gpu_xgmi_error_status',
@@ -2682,12 +2878,13 @@ __all__ = \
     'amdsmi_init', 'amdsmi_init_flags_t',
     'amdsmi_init_gpu_event_notification', 'amdsmi_io_bw_encoding_t',
     'amdsmi_io_link_type_t', 'amdsmi_is_P2P_accessible',
-    'amdsmi_is_gpu_power_management_enabled',
+    'amdsmi_is_gpu_power_management_enabled', 'amdsmi_kfd_info_t',
     'amdsmi_link_id_bw_type_t', 'amdsmi_link_metrics_t',
     'amdsmi_link_type_t', 'amdsmi_memory_page_status_t',
     'amdsmi_memory_partition_type_t', 'amdsmi_memory_type_t',
-    'amdsmi_mm_ip_t', 'amdsmi_name_value_t', 'amdsmi_od_vddc_point_t',
-    'amdsmi_od_volt_curve_t', 'amdsmi_od_volt_freq_data_t',
+    'amdsmi_mm_ip_t', 'amdsmi_name_value_t', 'amdsmi_nps_caps_t',
+    'amdsmi_od_vddc_point_t', 'amdsmi_od_volt_curve_t',
+    'amdsmi_od_volt_freq_data_t', 'amdsmi_p2p_capability_t',
     'amdsmi_pcie_bandwidth_t', 'amdsmi_pcie_info_t',
     'amdsmi_power_cap_info_t', 'amdsmi_power_info_t',
     'amdsmi_power_profile_preset_masks_t',
@@ -2696,10 +2893,9 @@ __all__ = \
     'amdsmi_process_info_t', 'amdsmi_processor_handle',
     'amdsmi_range_t', 'amdsmi_ras_err_state_t',
     'amdsmi_ras_feature_t', 'amdsmi_reg_type_t', 'amdsmi_reset_gpu',
-    'amdsmi_reset_gpu_compute_partition', 'amdsmi_reset_gpu_fan',
-    'amdsmi_reset_gpu_memory_partition',
-    'amdsmi_reset_gpu_xgmi_error', 'amdsmi_retired_page_record_t',
-    'amdsmi_set_clk_freq', 'amdsmi_set_cpu_core_boostlimit',
+    'amdsmi_reset_gpu_fan', 'amdsmi_reset_gpu_xgmi_error',
+    'amdsmi_retired_page_record_t', 'amdsmi_set_clk_freq',
+    'amdsmi_set_cpu_core_boostlimit',
     'amdsmi_set_cpu_df_pstate_range',
     'amdsmi_set_cpu_gmi3_link_width_range',
     'amdsmi_set_cpu_pcie_link_rate',
@@ -2707,7 +2903,8 @@ __all__ = \
     'amdsmi_set_cpu_socket_boostlimit',
     'amdsmi_set_cpu_socket_lclk_dpm_level',
     'amdsmi_set_cpu_socket_power_cap', 'amdsmi_set_cpu_xgmi_width',
-    'amdsmi_set_gpu_clk_range', 'amdsmi_set_gpu_compute_partition',
+    'amdsmi_set_gpu_clk_limit', 'amdsmi_set_gpu_clk_range',
+    'amdsmi_set_gpu_compute_partition',
     'amdsmi_set_gpu_event_notification_mask',
     'amdsmi_set_gpu_fan_speed', 'amdsmi_set_gpu_memory_partition',
     'amdsmi_set_gpu_od_clk_info', 'amdsmi_set_gpu_od_volt_info',
@@ -2722,14 +2919,16 @@ __all__ = \
     'amdsmi_temp_range_refresh_rate_t', 'amdsmi_temperature_metric_t',
     'amdsmi_temperature_type_t', 'amdsmi_topo_get_link_type',
     'amdsmi_topo_get_link_weight', 'amdsmi_topo_get_numa_node_number',
+    'amdsmi_topo_get_p2p_status', 'amdsmi_topology_nearest_t',
     'amdsmi_utilization_counter_t',
     'amdsmi_utilization_counter_type_t', 'amdsmi_vbios_info_t',
-    'amdsmi_version_t', 'amdsmi_voltage_metric_t',
-    'amdsmi_voltage_type_t', 'amdsmi_vram_info_t',
-    'amdsmi_vram_type_t', 'amdsmi_vram_usage_t',
+    'amdsmi_version_t', 'amdsmi_violation_status_t',
+    'amdsmi_voltage_metric_t', 'amdsmi_voltage_type_t',
+    'amdsmi_vram_info_t', 'amdsmi_vram_type_t', 'amdsmi_vram_usage_t',
     'amdsmi_vram_vendor_type_t', 'amdsmi_xgmi_info_t',
     'amdsmi_xgmi_status_t', 'processor_type_t', 'size_t',
     'struct__links', 'struct_amd_metrics_table_header_t',
+    'struct_amdsmi_accelerator_partition_profile_t',
     'struct_amdsmi_asic_info_t', 'struct_amdsmi_board_info_t',
     'struct_amdsmi_clk_info_t', 'struct_amdsmi_counter_value_t',
     'struct_amdsmi_ddr_bw_metrics_t', 'struct_amdsmi_dimm_power_t',
@@ -2741,11 +2940,13 @@ __all__ = \
     'struct_amdsmi_freq_volt_region_t', 'struct_amdsmi_frequencies_t',
     'struct_amdsmi_frequency_range_t', 'struct_amdsmi_fw_info_t',
     'struct_amdsmi_gpu_cache_info_t', 'struct_amdsmi_gpu_metrics_t',
-    'struct_amdsmi_hsmp_metrics_table_t',
+    'struct_amdsmi_gpu_xcp_metrics_t',
+    'struct_amdsmi_hsmp_metrics_table_t', 'struct_amdsmi_kfd_info_t',
     'struct_amdsmi_link_id_bw_type_t', 'struct_amdsmi_link_metrics_t',
     'struct_amdsmi_name_value_t', 'struct_amdsmi_od_vddc_point_t',
     'struct_amdsmi_od_volt_curve_t',
     'struct_amdsmi_od_volt_freq_data_t',
+    'struct_amdsmi_p2p_capability_t',
     'struct_amdsmi_pcie_bandwidth_t', 'struct_amdsmi_pcie_info_t',
     'struct_amdsmi_power_cap_info_t', 'struct_amdsmi_power_info_t',
     'struct_amdsmi_power_profile_status_t',
@@ -2754,12 +2955,14 @@ __all__ = \
     'struct_amdsmi_retired_page_record_t',
     'struct_amdsmi_smu_fw_version_t',
     'struct_amdsmi_temp_range_refresh_rate_t',
+    'struct_amdsmi_topology_nearest_t',
     'struct_amdsmi_utilization_counter_t',
     'struct_amdsmi_vbios_info_t', 'struct_amdsmi_version_t',
-    'struct_amdsmi_vram_info_t', 'struct_amdsmi_vram_usage_t',
-    'struct_amdsmi_xgmi_info_t', 'struct_cache_',
-    'struct_engine_usage_', 'struct_fw_info_list_',
-    'struct_memory_usage_', 'struct_pcie_metric_',
-    'struct_pcie_static_', 'struct_amdsmi_bdf_t',
-    'uint32_t', 'uint64_t', 'uint8_t',
-    'union_amdsmi_bdf_t']
+    'struct_amdsmi_violation_status_t', 'struct_amdsmi_vram_info_t',
+    'struct_amdsmi_vram_usage_t', 'struct_amdsmi_xgmi_info_t',
+    'struct_cache_', 'struct_engine_usage_', 'struct_fw_info_list_',
+    'struct_memory_usage_', 'struct_nps_flags_',
+    'struct_pcie_metric_', 'struct_pcie_static_',
+    'struct_amdsmi_bdf_t', 'uint32_t', 'uint64_t', 'uint8_t',
+    'union_amdsmi_bdf_t', 'union_amdsmi_nps_caps_t']
+

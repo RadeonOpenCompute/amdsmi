@@ -4,37 +4,761 @@ Full documentation for amd_smi_lib is available at [https://rocm.docs.amd.com/pr
 
 ***All information listed below is for reference and subject to change.***
 
+## amd_smi_lib for ROCm 6.3.0
+
+### Added
+
+- **Added support for `amd-smi metric --ecc` & `amd-smi metric --ecc-blocks` on Guest VMs**.  
+Guest VMs now support getting current ECC counts and ras information from the Host cards.
+
+- **Added support for GPU metrics 1.6 to `amdsmi_get_gpu_metrics_info()`**.  
+Updated `amdsmi_get_gpu_metrics_info()` and structure `amdsmi_gpu_metrics_t` to include new fields for PVIOL / TVIOL,  XCP (Graphics Compute Partitions) stats, and pcie_lc_perf_other_end_recovery:  
+  - `uint64_t accumulation_counter` - used for all throttled calculations
+  - `uint64_t prochot_residency_acc` - Processor hot accumulator
+  - `uint64_t ppt_residency_acc` - Package Power Tracking (PPT) accumulator (used in PVIOL calculations)
+  - `uint64_t socket_thm_residency_acc` - Socket thermal accumulator - (used in TVIOL calculations)
+  - `uint64_t vr_thm_residency_acc` - Voltage Rail (VR) thermal accumulator
+  - `uint64_t hbm_thm_residency_acc` - High Bandwidth Memory (HBM) thermal accumulator
+  - `uint16_t num_partition` - corresponds to the current total number of partitions
+  - `struct amdgpu_xcp_metrics_t xcp_stats[MAX_NUM_XCP]` - for each partition associated with current GPU, provides gfx busy & accumulators, jpeg, and decoder (VCN) engine utilizations
+    - `uint32_t gfx_busy_inst[MAX_NUM_XCC]` - graphic engine utilization (%)
+    - `uint16_t jpeg_busy[MAX_NUM_JPEG_ENGS]` - jpeg engine utilization (%)
+    - `uint16_t vcn_busy[MAX_NUM_VCNS]` - decoder (VCN) engine utilization (%)
+    - `uint64_t gfx_busy_acc[MAX_NUM_XCC]` - graphic engine utilization accumulated (%)
+  - `uint32_t pcie_lc_perf_other_end_recovery` - corresponds to the pcie other end recovery counter
+
+- **Added new violation status outputs and APIs: `amdsmi_status_t amdsmi_get_violation_status()`, `amd-smi metric  --throttle`, and `amd-smi monitor --violation`**.  
+  ***Only available for MI300+ ASICs.***  
+  Users can now retrieve violation status' through either our Python or C++ APIs. Additionally, we have
+  added capability to view these outputs conviently through `amd-smi metric --throttle` and `amd-smi monitor --violation`.  
+  Example outputs are listed below (below is for reference, output is subject to change):
+
+```shell
+$ amd-smi metric --throttle
+GPU: 0
+    THROTTLE:
+        ACCUMULATION_COUNTER: 3808991
+        PROCHOT_ACCUMULATED: 0
+        PPT_ACCUMULATED: 585613
+        SOCKET_THERMAL_ACCUMULATED: 2190
+        VR_THERMAL_ACCUMULATED: 0
+        HBM_THERMAL_ACCUMULATED: 0
+        PROCHOT_VIOLATION_STATUS: NOT ACTIVE
+        PPT_VIOLATION_STATUS: NOT ACTIVE
+        SOCKET_THERMAL_VIOLATION_STATUS: NOT ACTIVE
+        VR_THERMAL_VIOLATION_STATUS: NOT ACTIVE
+        HBM_THERMAL_VIOLATION_STATUS: NOT ACTIVE
+        PROCHOT_VIOLATION_ACTIVITY: 0 %
+        PPT_VIOLATION_ACTIVITY: 0 %
+        SOCKET_THERMAL_VIOLATION_ACTIVITY: 0 %
+        VR_THERMAL_VIOLATION_ACTIVITY: 0 %
+        HBM_THERMAL_VIOLATION_ACTIVITY: 0 %
+
+
+
+GPU: 1
+    THROTTLE:
+        ACCUMULATION_COUNTER: 3806335
+        PROCHOT_ACCUMULATED: 0
+        PPT_ACCUMULATED: 586332
+        SOCKET_THERMAL_ACCUMULATED: 18010
+        VR_THERMAL_ACCUMULATED: 0
+        HBM_THERMAL_ACCUMULATED: 0
+        PROCHOT_VIOLATION_STATUS: NOT ACTIVE
+        PPT_VIOLATION_STATUS: NOT ACTIVE
+        SOCKET_THERMAL_VIOLATION_STATUS: NOT ACTIVE
+        VR_THERMAL_VIOLATION_STATUS: NOT ACTIVE
+        HBM_THERMAL_VIOLATION_STATUS: NOT ACTIVE
+        PROCHOT_VIOLATION_ACTIVITY: 0 %
+        PPT_VIOLATION_ACTIVITY: 0 %
+        SOCKET_THERMAL_VIOLATION_ACTIVITY: 0 %
+        VR_THERMAL_VIOLATION_ACTIVITY: 0 %
+        HBM_THERMAL_VIOLATION_ACTIVITY: 0 %
+
+...
+```
+
+```shell
+$ amd-smi monitor --violation
+GPU     PVIOL     TVIOL  PHOT_TVIOL  VR_TVIOL  HBM_TVIOL
+  0       0 %       0 %         0 %       0 %        0 %
+  1       0 %       0 %         0 %       0 %        0 %
+  2       0 %       0 %         0 %       0 %        0 %
+  3       0 %       0 %         0 %       0 %        0 %
+  4       0 %       0 %         0 %       0 %        0 %
+  5       0 %       0 %         0 %       0 %        0 %
+  6       0 %       0 %         0 %       0 %        0 %
+  7       0 %       0 %         0 %       0 %        0 %
+  8       0 %       0 %         0 %       0 %        0 %
+  9       0 %       0 %         0 %       0 %        0 %
+ 10       0 %       0 %         0 %       0 %        0 %
+ 11       0 %       0 %         0 %       0 %        0 %
+ 12       0 %       0 %         0 %       0 %        0 %
+ 13       0 %       0 %         0 %       0 %        0 %
+ 14       0 %       0 %         0 %       0 %        0 %
+ 15       0 %       0 %         0 %       0 %        0 %
+...
+```
+
+- **Added ability to view XCP (Graphics Compute Partition) activity within `amd-smi metric --usage`**.  
+  ***Partition specific features are only available on MI300+ ASICs***  
+  Users can now retrieve graphic utilization statistic on a per-XCP (per-partition) basis. Here all  XCP activities will be listed,
+  but the current XCP is the partition id listed under both `amd-smi list` and `amd-smi static --partition`.  
+  Example outputs are listed below (below is for reference, output is subject to change):
+
+```shell
+$ amd-smi metric --usage
+GPU: 0
+    USAGE:
+        GFX_ACTIVITY: 0 %
+        UMC_ACTIVITY: 0 %
+        MM_ACTIVITY: N/A
+        VCN_ACTIVITY: [0 %, N/A, N/A, N/A]
+        JPEG_ACTIVITY: [0 %, 0 %, 0 %, 0 %, 0 %, 0 %, 0 %, 0 %, N/A, N/A, N/A, N/A, N/A,
+            N/A, N/A, N/A, N/A, N/A, N/A, N/A, N/A, N/A, N/A, N/A, N/A, N/A, N/A, N/A, N/A,
+            N/A, N/A, N/A]
+        GFX_BUSY_INST:
+            XCP_0: [0 %, N/A, N/A, N/A, N/A, N/A, N/A, N/A]
+            XCP_1: [0 %, N/A, N/A, N/A, N/A, N/A, N/A, N/A]
+            XCP_2: [0 %, N/A, N/A, N/A, N/A, N/A, N/A, N/A]
+            XCP_3: [0 %, N/A, N/A, N/A, N/A, N/A, N/A, N/A]
+            XCP_4: [0 %, N/A, N/A, N/A, N/A, N/A, N/A, N/A]
+            XCP_5: [0 %, N/A, N/A, N/A, N/A, N/A, N/A, N/A]
+            XCP_6: [0 %, N/A, N/A, N/A, N/A, N/A, N/A, N/A]
+            XCP_7: [0 %, N/A, N/A, N/A, N/A, N/A, N/A, N/A]
+        JPEG_BUSY:
+            XCP_0: [0 %, 0 %, 0 %, 0 %, 0 %, 0 %, 0 %, 0 %, N/A, N/A, N/A, N/A, N/A, N/A,
+                N/A, N/A, N/A, N/A, N/A, N/A, N/A, N/A, N/A, N/A, N/A, N/A, N/A, N/A, N/A,
+                N/A, N/A, N/A]
+            XCP_1: [0 %, 0 %, 0 %, 0 %, 0 %, 0 %, 0 %, 0 %, N/A, N/A, N/A, N/A, N/A, N/A,
+                N/A, N/A, N/A, N/A, N/A, N/A, N/A, N/A, N/A, N/A, N/A, N/A, N/A, N/A, N/A,
+                N/A, N/A, N/A]
+            XCP_2: [0 %, 0 %, 0 %, 0 %, 0 %, 0 %, 0 %, 0 %, N/A, N/A, N/A, N/A, N/A, N/A,
+                N/A, N/A, N/A, N/A, N/A, N/A, N/A, N/A, N/A, N/A, N/A, N/A, N/A, N/A, N/A,
+                N/A, N/A, N/A]
+            XCP_3: [0 %, 0 %, 0 %, 0 %, 0 %, 0 %, 0 %, 0 %, N/A, N/A, N/A, N/A, N/A, N/A,
+                N/A, N/A, N/A, N/A, N/A, N/A, N/A, N/A, N/A, N/A, N/A, N/A, N/A, N/A, N/A,
+                N/A, N/A, N/A]
+            XCP_4: [0 %, 0 %, 0 %, 0 %, 0 %, 0 %, 0 %, 0 %, N/A, N/A, N/A, N/A, N/A, N/A,
+                N/A, N/A, N/A, N/A, N/A, N/A, N/A, N/A, N/A, N/A, N/A, N/A, N/A, N/A, N/A,
+                N/A, N/A, N/A]
+            XCP_5: [0 %, 0 %, 0 %, 0 %, 0 %, 0 %, 0 %, 0 %, N/A, N/A, N/A, N/A, N/A, N/A,
+                N/A, N/A, N/A, N/A, N/A, N/A, N/A, N/A, N/A, N/A, N/A, N/A, N/A, N/A, N/A,
+                N/A, N/A, N/A]
+            XCP_6: [0 %, 0 %, 0 %, 0 %, 0 %, 0 %, 0 %, 0 %, N/A, N/A, N/A, N/A, N/A, N/A,
+                N/A, N/A, N/A, N/A, N/A, N/A, N/A, N/A, N/A, N/A, N/A, N/A, N/A, N/A, N/A,
+                N/A, N/A, N/A]
+            XCP_7: [0 %, 0 %, 0 %, 0 %, 0 %, 0 %, 0 %, 0 %, N/A, N/A, N/A, N/A, N/A, N/A,
+                N/A, N/A, N/A, N/A, N/A, N/A, N/A, N/A, N/A, N/A, N/A, N/A, N/A, N/A, N/A,
+                N/A, N/A, N/A]
+        VCN_BUSY:
+            XCP_0: [0 %, N/A, N/A, N/A]
+            XCP_1: [0 %, N/A, N/A, N/A]
+            XCP_2: [0 %, N/A, N/A, N/A]
+            XCP_3: [0 %, N/A, N/A, N/A]
+            XCP_4: [0 %, N/A, N/A, N/A]
+            XCP_5: [0 %, N/A, N/A, N/A]
+            XCP_6: [0 %, N/A, N/A, N/A]
+            XCP_7: [0 %, N/A, N/A, N/A]
+        GFX_BUSY_ACC:
+            XCP_0: [N/A, N/A, N/A, N/A, N/A, N/A, N/A, N/A]
+            XCP_1: [N/A, N/A, N/A, N/A, N/A, N/A, N/A, N/A]
+            XCP_2: [N/A, N/A, N/A, N/A, N/A, N/A, N/A, N/A]
+            XCP_3: [N/A, N/A, N/A, N/A, N/A, N/A, N/A, N/A]
+            XCP_4: [N/A, N/A, N/A, N/A, N/A, N/A, N/A, N/A]
+            XCP_5: [N/A, N/A, N/A, N/A, N/A, N/A, N/A, N/A]
+            XCP_6: [N/A, N/A, N/A, N/A, N/A, N/A, N/A, N/A]
+            XCP_7: [N/A, N/A, N/A, N/A, N/A, N/A, N/A, N/A]
+
+GPU: 1
+    USAGE:
+        GFX_ACTIVITY: 0 %
+        UMC_ACTIVITY: 0 %
+        MM_ACTIVITY: N/A
+        VCN_ACTIVITY: [0 %, N/A, N/A, N/A]
+        JPEG_ACTIVITY: [0 %, 0 %, 0 %, 0 %, 0 %, 0 %, 0 %, 0 %, N/A, N/A, N/A, N/A, N/A,
+            N/A, N/A, N/A, N/A, N/A, N/A, N/A, N/A, N/A, N/A, N/A, N/A, N/A, N/A, N/A, N/A,
+            N/A, N/A, N/A]
+        GFX_BUSY_INST:
+            XCP_0: [0 %, N/A, N/A, N/A, N/A, N/A, N/A, N/A]
+            XCP_1: [0 %, N/A, N/A, N/A, N/A, N/A, N/A, N/A]
+            XCP_2: [0 %, N/A, N/A, N/A, N/A, N/A, N/A, N/A]
+            XCP_3: [0 %, N/A, N/A, N/A, N/A, N/A, N/A, N/A]
+            XCP_4: [0 %, N/A, N/A, N/A, N/A, N/A, N/A, N/A]
+            XCP_5: [0 %, N/A, N/A, N/A, N/A, N/A, N/A, N/A]
+            XCP_6: [0 %, N/A, N/A, N/A, N/A, N/A, N/A, N/A]
+            XCP_7: [0 %, N/A, N/A, N/A, N/A, N/A, N/A, N/A]
+        JPEG_BUSY:
+            XCP_0: [0 %, 0 %, 0 %, 0 %, 0 %, 0 %, 0 %, 0 %, N/A, N/A, N/A, N/A, N/A, N/A,
+                N/A, N/A, N/A, N/A, N/A, N/A, N/A, N/A, N/A, N/A, N/A, N/A, N/A, N/A, N/A,
+                N/A, N/A, N/A]
+            XCP_1: [0 %, 0 %, 0 %, 0 %, 0 %, 0 %, 0 %, 0 %, N/A, N/A, N/A, N/A, N/A, N/A,
+                N/A, N/A, N/A, N/A, N/A, N/A, N/A, N/A, N/A, N/A, N/A, N/A, N/A, N/A, N/A,
+                N/A, N/A, N/A]
+            XCP_2: [0 %, 0 %, 0 %, 0 %, 0 %, 0 %, 0 %, 0 %, N/A, N/A, N/A, N/A, N/A, N/A,
+                N/A, N/A, N/A, N/A, N/A, N/A, N/A, N/A, N/A, N/A, N/A, N/A, N/A, N/A, N/A,
+                N/A, N/A, N/A]
+            XCP_3: [0 %, 0 %, 0 %, 0 %, 0 %, 0 %, 0 %, 0 %, N/A, N/A, N/A, N/A, N/A, N/A,
+                N/A, N/A, N/A, N/A, N/A, N/A, N/A, N/A, N/A, N/A, N/A, N/A, N/A, N/A, N/A,
+                N/A, N/A, N/A]
+            XCP_4: [0 %, 0 %, 0 %, 0 %, 0 %, 0 %, 0 %, 0 %, N/A, N/A, N/A, N/A, N/A, N/A,
+                N/A, N/A, N/A, N/A, N/A, N/A, N/A, N/A, N/A, N/A, N/A, N/A, N/A, N/A, N/A,
+                N/A, N/A, N/A]
+            XCP_5: [0 %, 0 %, 0 %, 0 %, 0 %, 0 %, 0 %, 0 %, N/A, N/A, N/A, N/A, N/A, N/A,
+                N/A, N/A, N/A, N/A, N/A, N/A, N/A, N/A, N/A, N/A, N/A, N/A, N/A, N/A, N/A,
+                N/A, N/A, N/A]
+            XCP_6: [0 %, 0 %, 0 %, 0 %, 0 %, 0 %, 0 %, 0 %, N/A, N/A, N/A, N/A, N/A, N/A,
+                N/A, N/A, N/A, N/A, N/A, N/A, N/A, N/A, N/A, N/A, N/A, N/A, N/A, N/A, N/A,
+                N/A, N/A, N/A]
+            XCP_7: [0 %, 0 %, 0 %, 0 %, 0 %, 0 %, 0 %, 0 %, N/A, N/A, N/A, N/A, N/A, N/A,
+                N/A, N/A, N/A, N/A, N/A, N/A, N/A, N/A, N/A, N/A, N/A, N/A, N/A, N/A, N/A,
+                N/A, N/A, N/A]
+        VCN_BUSY:
+            XCP_0: [0 %, N/A, N/A, N/A]
+            XCP_1: [0 %, N/A, N/A, N/A]
+            XCP_2: [0 %, N/A, N/A, N/A]
+            XCP_3: [0 %, N/A, N/A, N/A]
+            XCP_4: [0 %, N/A, N/A, N/A]
+            XCP_5: [0 %, N/A, N/A, N/A]
+            XCP_6: [0 %, N/A, N/A, N/A]
+            XCP_7: [0 %, N/A, N/A, N/A]
+        GFX_BUSY_ACC:
+            XCP_0: [N/A, N/A, N/A, N/A, N/A, N/A, N/A, N/A]
+            XCP_1: [N/A, N/A, N/A, N/A, N/A, N/A, N/A, N/A]
+            XCP_2: [N/A, N/A, N/A, N/A, N/A, N/A, N/A, N/A]
+            XCP_3: [N/A, N/A, N/A, N/A, N/A, N/A, N/A, N/A]
+            XCP_4: [N/A, N/A, N/A, N/A, N/A, N/A, N/A, N/A]
+            XCP_5: [N/A, N/A, N/A, N/A, N/A, N/A, N/A, N/A]
+            XCP_6: [N/A, N/A, N/A, N/A, N/A, N/A, N/A, N/A]
+            XCP_7: [N/A, N/A, N/A, N/A, N/A, N/A, N/A, N/A]
+
+...
+```
+
+- **Added `LC_PERF_OTHER_END_RECOVERY` CLI output to `amd-smi metric --pcie` and updated `amdsmi_get_pcie_info()` to include this value**.  
+  ***Feature is only available on MI300+ ASICs***  
+  Users can now retrieve both through `amdsmi_get_pcie_info()` which has an updated structure:
+
+```C
+typedef struct {
+  ...
+  struct pcie_metric_ {
+    uint16_t pcie_width;                  //!< current PCIe width
+    uint32_t pcie_speed;                  //!< current PCIe speed in MT/s
+    uint32_t pcie_bandwidth;              //!< current instantaneous PCIe bandwidth in Mb/s
+    uint64_t pcie_replay_count;           //!< total number of the replays issued on the PCIe link
+    uint64_t pcie_l0_to_recovery_count;   //!< total number of times the PCIe link transitioned from L0 to the recovery state
+    uint64_t pcie_replay_roll_over_count; //!< total number of replay rollovers issued on the PCIe link
+    uint64_t pcie_nak_sent_count;         //!< total number of NAKs issued on the PCIe link by the device
+    uint64_t pcie_nak_received_count;     //!< total number of NAKs issued on the PCIe link by the receiver
+    uint32_t pcie_lc_perf_other_end_recovery_count;  //!< PCIe other end recovery counter
+    uint64_t reserved[12];
+  } pcie_metric;
+  uint64_t reserved[32];
+} amdsmi_pcie_info_t;
+```
+
+  - Example outputs are listed below (below is for reference, output is subject to change):
+
+```shell
+$ amd-smi metric --pcie
+GPU: 0
+    PCIE:
+        WIDTH: 16
+        SPEED: 32 GT/s
+        BANDWIDTH: 18 Mb/s
+        REPLAY_COUNT: 0
+        L0_TO_RECOVERY_COUNT: 0
+        REPLAY_ROLL_OVER_COUNT: 0
+        NAK_SENT_COUNT: 0
+        NAK_RECEIVED_COUNT: 0
+        CURRENT_BANDWIDTH_SENT: N/A
+        CURRENT_BANDWIDTH_RECEIVED: N/A
+        MAX_PACKET_SIZE: N/A
+        LC_PERF_OTHER_END_RECOVERY: 0
+
+GPU: 1
+    PCIE:
+        WIDTH: 16
+        SPEED: 32 GT/s
+        BANDWIDTH: 18 Mb/s
+        REPLAY_COUNT: 0
+        L0_TO_RECOVERY_COUNT: 0
+        REPLAY_ROLL_OVER_COUNT: 0
+        NAK_SENT_COUNT: 0
+        NAK_RECEIVED_COUNT: 0
+        CURRENT_BANDWIDTH_SENT: N/A
+        CURRENT_BANDWIDTH_RECEIVED: N/A
+        MAX_PACKET_SIZE: N/A
+        LC_PERF_OTHER_END_RECOVERY: 0
+...
+```
+
+- **Added retrieving a set of GPUs that are nearest to a given device at a specific link type level**.  
+  - Added `amdsmi_get_link_topology_nearest()` function to amd-smi C and Python Libraries.
+
+- **Added more supported utilization count types to `amdsmi_get_utilization_count()`**.  
+
+- **Added `amd-smi set -L/--clk-limit ...` command**.  
+  Equivalent to rocm-smi's '--extremum' command which sets sclk's or mclk's soft minimum or soft maximum clock frequency.
+
+- **Added unittest functionality to test amdsmi API calls in Python**.  
+
+- **Changed the `power` parameter in `amdsmi_get_energy_count()` to `energy_accumulator`**.  
+  - Changes propagate forwards into the python interface as well, however we are maintaing backwards compatibility and keeping the `power` field in the python API until ROCm 6.4.
+
+- **Added GPU memory overdrive percentage to `amd-smi metric -o`**.  
+  - Added `amdsmi_get_gpu_mem_overdrive_level()` function to amd-smi C and Python Libraries.
+
+- **Added retrieving connection type and P2P capabilities between two GPUs**.  
+  - Added `amdsmi_topo_get_p2p_status()` function to amd-smi C and Python Libraries.
+  - Added retrieving P2P link capabilities to CLI `amd-smi topology`.
+
+```shell
+$ amd-smi topology -h
+usage: amd-smi topology [-h] [--json | --csv] [--file FILE] [--loglevel LEVEL]
+                        [-g GPU [GPU ...]] [-a] [-w] [-o] [-t] [-b]
+
+If no GPU is specified, returns information for all GPUs on the system.
+If no topology argument is provided all topology information will be displayed.
+
+Topology arguments:
+  -h, --help               show this help message and exit
+  -g, --gpu GPU [GPU ...]  Select a GPU ID, BDF, or UUID from the possible choices:
+                           ID: 0 | BDF: 0000:0c:00.0 | UUID: <redacted>
+                           ID: 1 | BDF: 0000:22:00.0 | UUID: <redacted>
+                           ID: 2 | BDF: 0000:38:00.0 | UUID: <redacted>
+                           ID: 3 | BDF: 0000:5c:00.0 | UUID: <redacted>
+                           ID: 4 | BDF: 0000:9f:00.0 | UUID: <redacted>
+                           ID: 5 | BDF: 0000:af:00.0 | UUID: <redacted>
+                           ID: 6 | BDF: 0000:bf:00.0 | UUID: <redacted>
+                           ID: 7 | BDF: 0000:df:00.0 | UUID: <redacted>
+                             all | Selects all devices
+
+  -a, --access             Displays link accessibility between GPUs
+  -w, --weight             Displays relative weight between GPUs
+  -o, --hops               Displays the number of hops between GPUs
+  -t, --link-type          Displays the link type between GPUs
+  -b, --numa-bw            Display max and min bandwidth between nodes
+  -c, --coherent           Display cache coherant (or non-coherant) link capability between nodes
+  -n, --atomics            Display 32 and 64-bit atomic io link capability between nodes
+  -d, --dma                Display P2P direct memory access (DMA) link capability between nodes
+  -z, --bi-dir             Display P2P bi-directional link capability between nodes
+
+Command Modifiers:
+  --json                   Displays output in JSON format (human readable by default).
+  --csv                    Displays output in CSV format (human readable by default).
+  --file FILE              Saves output into a file on the provided path (stdout by default).
+  --loglevel LEVEL         Set the logging level from the possible choices:
+                                DEBUG, INFO, WARNING, ERROR, CRITICAL
+```
+
+```shell
+$ amd-smi topology -cndz
+CACHE COHERANCY TABLE:
+             0000:0c:00.0 0000:22:00.0 0000:38:00.0 0000:5c:00.0 0000:9f:00.0 0000:af:00.0 0000:bf:00.0 0000:df:00.0
+0000:0c:00.0 SELF         C            NC           NC           C            C            C            NC
+0000:22:00.0 C            SELF         NC           C            C            C            NC           C
+0000:38:00.0 NC           NC           SELF         C            C            NC           C            NC
+0000:5c:00.0 NC           C            C            SELF         NC           C            NC           NC
+0000:9f:00.0 C            C            C            NC           SELF         NC           NC           C
+0000:af:00.0 C            C            NC           C            NC           SELF         C            C
+0000:bf:00.0 C            NC           C            NC           NC           C            SELF         NC
+0000:df:00.0 NC           C            NC           NC           C            C            NC           SELF
+
+ATOMICS TABLE:
+             0000:0c:00.0 0000:22:00.0 0000:38:00.0 0000:5c:00.0 0000:9f:00.0 0000:af:00.0 0000:bf:00.0 0000:df:00.0
+0000:0c:00.0 SELF         64,32        64,32        64           32           32           N/A          64,32
+0000:22:00.0 64,32        SELF         64           32           32           N/A          64,32        64,32
+0000:38:00.0 64,32        64           SELF         32           N/A          64,32        64,32        64,32
+0000:5c:00.0 64           32           32           SELF         64,32        64,32        64,32        32
+0000:9f:00.0 32           32           N/A          64,32        SELF         64,32        32           32
+0000:af:00.0 32           N/A          64,32        64,32        64,32        SELF         32           N/A
+0000:bf:00.0 N/A          64,32        64,32        64,32        32           32           SELF         64,32
+0000:df:00.0 64,32        64,32        64,32        32           32           N/A          64,32        SELF
+
+DMA TABLE:
+             0000:0c:00.0 0000:22:00.0 0000:38:00.0 0000:5c:00.0 0000:9f:00.0 0000:af:00.0 0000:bf:00.0 0000:df:00.0
+0000:0c:00.0 SELF         T            T            F            F            T            F            T
+0000:22:00.0 T            SELF         F            F            T            F            T            T
+0000:38:00.0 T            F            SELF         T            F            T            T            T
+0000:5c:00.0 F            F            T            SELF         T            T            T            F
+0000:9f:00.0 F            T            F            T            SELF         T            F            F
+0000:af:00.0 T            F            T            T            T            SELF         F            T
+0000:bf:00.0 F            T            T            T            F            F            SELF         F
+0000:df:00.0 T            T            T            F            F            T            F            SELF
+
+BI-DIRECTIONAL TABLE:
+             0000:0c:00.0 0000:22:00.0 0000:38:00.0 0000:5c:00.0 0000:9f:00.0 0000:af:00.0 0000:bf:00.0 0000:df:00.0
+0000:0c:00.0 SELF         T            T            F            F            T            F            T
+0000:22:00.0 T            SELF         F            F            T            F            T            T
+0000:38:00.0 T            F            SELF         T            F            T            T            T
+0000:5c:00.0 F            F            T            SELF         T            T            T            F
+0000:9f:00.0 F            T            F            T            SELF         T            F            F
+0000:af:00.0 T            F            T            T            T            SELF         F            T
+0000:bf:00.0 F            T            T            T            F            F            SELF         F
+0000:df:00.0 T            T            T            F            F            T            F            SELF
+
+Legend:
+ SELF = Current GPU
+ ENABLED / DISABLED = Link is enabled or disabled
+ N/A = Not supported
+ T/F = True / False
+ C/NC = Coherant / Non-Coherant io links
+ 64,32 = 64 bit and 32 bit atomic support
+ <BW from>-<BW to>
+```
+
+- **Created new amdsmi_kfd_info_t and added information under `amd-smi list`**.  
+  - Due to fixes needed to properly enumerate all logical GPUs in CPX, new device identifiers were added in to a new `amdsmi_kfd_info_t` which gets populated via the API `amdsmi_get_gpu_kfd_info()`.
+  - This info has been added to the `amd-smi list`.
+  - These new fields are only available for BM/Guest Linux devices at this time.
+
+```C
+typedef struct {
+  uint64_t kfd_id;  //< 0xFFFFFFFFFFFFFFFF if not supported
+  uint32_t node_id;  //< 0xFFFFFFFF if not supported
+  uint32_t current_partition_id;  //< 0xFFFFFFFF if not supported
+  uint32_t reserved[12];
+} amdsmi_kfd_info_t;
+```
+
+```shell
+$ amd-smi list
+GPU: 0
+    BDF: 0000:23:00.0
+    UUID: <redacted>
+    KFD_ID: 45412
+    NODE_ID: 1
+    PARTITION_ID: 0
+
+GPU: 1
+    BDF: 0000:26:00.0
+    UUID: <redacted>
+    KFD_ID: 59881
+    NODE_ID: 2
+    PARTITION_ID: 0
+```
+
+- **Added Subsystem Device ID to `amd-smi static --asic`**.  
+  - No underlying changes to amdsmi_get_gpu_asic_info
+
+```shell
+$ amd-smi static --asic
+GPU: 0
+    ASIC:
+        MARKET_NAME: MI308X
+        VENDOR_ID: 0x1002
+        VENDOR_NAME: Advanced Micro Devices Inc. [AMD/ATI]
+        SUBVENDOR_ID: 0x1002
+        DEVICE_ID: 0x74a2
+        SUBSYSTEM_ID: 0x74a2
+        REV_ID: 0x00
+        ASIC_SERIAL: <redacted>
+        OAM_ID: 5
+        NUM_COMPUTE_UNITS: 20
+        TARGET_GRAPHICS_VERSION: gfx942
+```
+
+- **Added Target_Graphics_Version to `amd-smi static --asic` and `amdsmi_get_gpu_asic_info()`**.  
+
+```C
+typedef struct {
+  char  market_name[AMDSMI_256_LENGTH];
+  uint32_t vendor_id;   //< Use 32 bit to be compatible with other platform.
+  char vendor_name[AMDSMI_MAX_STRING_LENGTH];
+  uint32_t subvendor_id;   //< The subsystem vendor id
+  uint64_t device_id;   //< The device id of a GPU
+  uint32_t rev_id;
+  char asic_serial[AMDSMI_NORMAL_STRING_LENGTH];
+  uint32_t oam_id;   //< 0xFFFF if not supported
+  uint32_t num_of_compute_units;   //< 0xFFFFFFFF if not supported
+  uint64_t target_graphics_version;  //< 0xFFFFFFFFFFFFFFFF if not supported
+  uint32_t reserved[15];
+} amdsmi_asic_info_t;
+```
+
+```shell
+$ amd-smi static --asic
+GPU: 0
+    ASIC:
+        MARKET_NAME: MI308X
+        VENDOR_ID: 0x1002
+        VENDOR_NAME: Advanced Micro Devices Inc. [AMD/ATI]
+        SUBVENDOR_ID: 0x1002
+        DEVICE_ID: 0x74a2
+        SUBSYSTEM_ID: 0x74a2
+        REV_ID: 0x00
+        ASIC_SERIAL: <redacted>
+        OAM_ID: 5
+        NUM_COMPUTE_UNITS: 20
+        TARGET_GRAPHICS_VERSION: gfx942
+```
+
+### Changed
+
+- **Improvement: Users now have the ability to set and reset without providing `-g all` using AMD SMI CLI**.  
+Users can now provide set and reset without `-g all`. Previously, users were required to provide:   
+`sudo amd-smi set -g all <set arguments>` or `sudo amd-smi reset -g all <set arguments>`  
+This update allows users to set or reset without providing `-g all` arguments. Allowing commands:  
+`sudo amd-smi set <set arguments>` or `sudo amd-smi reset <set arguments>`  
+This action will default to try to set/reset for all AMD GPUs on the user's system.
+
+- **Improvement: `amd-smi set --memory-partition` now includes a warning banner and progress bar**.  
+For devices which support dynamically changing memory partitions, we now provide a warning for users. We provide this warning to provide users knowledge that this action requires users to quit any gpu workloads. Also to let them know this process will trigger an AMD GPU driver reload. Since this process takes time to complete, a progress bar has been provided until actions can verified as a successful change. Otherwise, AMD SMI will report any errors to users and what actions can be taken. See example below:  
+```shell
+$ sudo amd-smi set -M NPS1
+
+          ****** WARNING ******
+
+          Setting Dynamic Memory (NPS) partition modes require users to quit all GPU workloads.
+          AMD SMI will then attempt to change memory (NPS) partition mode.
+          Upon a successful set, AMD SMI will then initiate an action to restart amdgpu driver.
+          This action will change all GPU's in the hive to the requested memory (NPS) partition mode.
+
+          Please use this utility with caution.
+
+Do you accept these terms? [Y/N] y
+
+Updating memory partition for gpu 0: [████████████████████████████████████████] 40/40 secs remain
+
+GPU: 0
+    MEMORYPARTITION: Successfully set memory partition to NPS1
+
+GPU: 1
+    MEMORYPARTITION: Successfully set memory partition to NPS1
+
+GPU: 2
+    MEMORYPARTITION: Successfully set memory partition to NPS1
+...
+```  
+
+- **Updated `amdsmi_get_gpu_accelerator_partition_profile` to provide driver memory partition capablities**.  
+Driver now has the ability to report what the user can set memory partition modes to. User can now see available
+memory partition modes upon an invalid argument return from memory partition mode set (`amdsmi_set_gpu_memory_partition`).
+This change also updates `amd-smi partition`, `amd-smi partition --memory`, and `amd-smi partition --accelerator` (*see note below)   
+***Note: *Subject to change for ROCm 6.4***
+
+- **Updated `amdsmi_set_gpu_memory_partition` to not return until a successful restart of AMD GPU Driver.**  
+This change keeps checking for ~ up to 40 seconds for a successful restart of the AMD GPU driver. Additionally, the API call continues to check if memory partition (NPS) SYSFS files are successfully updated to reflect the user's requested memory partition (NPS) mode change. Otherwise, reports an error back to the user. Due to these changes, we have updated AMD SMI's CLI to reflect the maximum wait of 40 seconds, while a memory partition change is in progress.
+
+- **All APIs now have the ability to catch driver reporting invalid arguments.**  
+Now AMD SMI APIs can show AMDSMI_STATUS_INVAL when driver returns EINVAL.  
+For example, if user tries to set to NPS8, but the memory partition mode is not an available mode to set to. Commonly referred to as `CAPS` (see `amd-smi partition --memory`), provided by `amdsmi_get_gpu_accelerator_partition_profile`(*see note below).  
+***Note: *Subject to change for ROCm 6.4***
+
+- **Updated BDF commands to look use KFD SYSFS for BDF: `amdsmi_get_gpu_device_bdf()`**.  
+This aligns BDF output with ROCm SMI.
+See below for overview as seen from `rsmi_dev_pci_id_get()` now provides partition ID. See API for better detail. Previously these bits were reserved bits (right before domain) and partition id was within function.
+  - bits [63:32] = domain
+  - bits [31:28] = partition id
+  - bits [27:16] = reserved
+  - bits [15: 0] = pci bus/device/function
+
+- **Moved python tests directory path install location**.  
+  - `/opt/<rocm-path>/share/amd_smi/pytest/..` to `/opt/<rocm-path>/share/amd_smi/tests/python_unittest/..`
+  - On amd-smi-lib-tests uninstall, the amd_smi tests folder is removed
+  - Removed pytest dependency, our python testing now only depends on the unittest framework.
+
+- **Updated Partition APIs and struct information and added and partition_id to `amd-smi static --partition`**.
+  - As part of an overhaul to partition information, some partition information will be made available in the `amdsmi_accelerator_partition_profile_t`.
+  - This struct will be filled out by a new API, `amdsmi_get_gpu_accelerator_partition_profile()`.
+  - Future data from these APIs wil will eventually get added to `amd-smi partition`.
+
+```C
+#define AMDSMI_MAX_ACCELERATOR_PROFILE    32
+#define AMDSMI_MAX_CP_PROFILE_RESOURCES   32
+#define AMDSMI_MAX_ACCELERATOR_PARTITIONS 8
+
+/**
+ * @brief Accelerator Partition. This enum is used to identify
+ * various accelerator partitioning settings.
+ */
+typedef enum {
+  AMDSMI_ACCELERATOR_PARTITION_INVALID = 0,
+  AMDSMI_ACCELERATOR_PARTITION_SPX,        //!< Single GPU mode (SPX)- All XCCs work
+                                       //!< together with shared memory
+  AMDSMI_ACCELERATOR_PARTITION_DPX,        //!< Dual GPU mode (DPX)- Half XCCs work
+                                       //!< together with shared memory
+  AMDSMI_ACCELERATOR_PARTITION_TPX,        //!< Triple GPU mode (TPX)- One-third XCCs
+                                       //!< work together with shared memory
+  AMDSMI_ACCELERATOR_PARTITION_QPX,        //!< Quad GPU mode (QPX)- Quarter XCCs
+                                       //!< work together with shared memory
+  AMDSMI_ACCELERATOR_PARTITION_CPX,        //!< Core mode (CPX)- Per-chip XCC with
+                                       //!< shared memory
+} amdsmi_accelerator_partition_type_t;
+
+/**
+ * @brief Possible Memory Partition Modes.
+ * This union is used to identify various memory partitioning settings.
+ */
+typedef union {
+    struct {
+        uint32_t nps1_cap :1;  // bool 1 = true; 0 = false; Max uint32 means unsupported
+        uint32_t nps2_cap :1;  // bool 1 = true; 0 = false; Max uint32 means unsupported
+        uint32_t nps4_cap :1;  // bool 1 = true; 0 = false; Max uint32 means unsupported
+        uint32_t nps8_cap :1;  // bool 1 = true; 0 = false; Max uint32 means unsupported
+        uint32_t reserved :28;
+    } amdsmi_nps_flags_t;
+
+    uint32_t nps_cap_mask;
+} amdsmi_nps_caps_t;
+
+typedef struct {
+  amdsmi_accelerator_partition_type_t  profile_type;   // SPX, DPX, QPX, CPX and so on
+  uint32_t num_partitions;  // On MI300X, SPX: 1, DPX: 2, QPX: 4, CPX: 8, length of resources array
+  uint32_t profile_index;
+  amdsmi_nps_caps_t memory_caps;             // Possible memory partition capabilities
+  uint32_t num_resources;                    // length of index_of_resources_profile
+  uint32_t resources[AMDSMI_MAX_ACCELERATOR_PARTITIONS][AMDSMI_MAX_CP_PROFILE_RESOURCES];
+  uint64_t reserved[6];
+} amdsmi_accelerator_partition_profile_t;
+```
+
+```shell
+$ amd-smi static --partition
+GPU: 0
+    PARTITION:
+        COMPUTE_PARTITION: CPX
+        MEMORY_PARTITION: NPS4
+        PARTITION_ID: 0
+```
+
+### Removed
+
+- **Removed `amd-smi reset --compute-partition` and `... --memory-partition` and associated APIs**.  
+  - This change is part of the partition redesign. Reset functionality will be reintroduced in a later update.
+  - associated APIs include `amdsmi_reset_gpu_compute_partition()` and `amdsmi_reset_gpu_memory_partition()`
+
+- **Removed usage of _validate_positive in Parser and replaced with _positive_int and _not_negative_int as appropriate**.  
+  - This will allow 0 to be a valid input for several options in setting CPUs where appropriate (for example, as a mode or NBIOID)
+
+### Optimized
+
+- **Adjusted ordering of gpu_metrics calls to ensure that pcie_bw values remain stable in `amd-smi metric` & `amd-smi monitor`**.  
+  - With this change additional padding was added to PCIE_BW `amd-smi monitor --pcie`
+
+### Resolved issues
+
+- **Fixed `amdsmi_get_gpu_asic_info`'s `target_graphics_version` and `amd-smi --asic` not displaying properly for MI2x or Navi 3x ASICs**.  
+
+- **Fixed `amd-smi reset` commands showing an AttributeError**.  
+
+- **Improved Offline install process & lowered dependency for PyYAML**.  
+
+- **Fixed CPX not showing total number of logical GPUs**.  
+  - Updates were made to `amdsmi_init()` and `amdsmi_get_gpu_bdf_id(..)`. In order to display all logical devices, we needed a way to provide order to GPU's enumerated. This was done by adding a partition_id within the BDF optional pci_id bits.
+  - Due to driver changes in KFD, some devices may report bits [31:28] or [2:0]. With the newly added `amdsmi_get_gpu_bdf_id(..)`, we provided this fallback to properly retreive partition ID. We
+plan to eventually remove partition ID from the function portion of the BDF (Bus Device Function). See below for PCI ID description.
+
+    - bits [63:32] = domain
+    - bits [31:28] or bits [2:0] = partition id
+    - bits [27:16] = reserved
+    - bits [15:8]  = Bus
+    - bits [7:3] = Device
+    - bits [2:0] = Function (partition id maybe in bits [2:0]) <-- Fallback for non SPX modes
+
+  - Previously in non-SPX modes (ex. CPX/TPX/DPX/etc) some MI3x ASICs would not report all logical GPU devices within AMD SMI.
+
+```shell
+$ amd-smi monitor -p -t -v
+GPU  POWER  GPU_TEMP  MEM_TEMP  VRAM_USED  VRAM_TOTAL
+  0  248 W     55 °C     48 °C     283 MB   196300 MB
+  1  247 W     55 °C     48 °C     283 MB   196300 MB
+  2  247 W     55 °C     48 °C     283 MB   196300 MB
+  3  247 W     55 °C     48 °C     283 MB   196300 MB
+  4  221 W     50 °C     42 °C     283 MB   196300 MB
+  5  221 W     50 °C     42 °C     283 MB   196300 MB
+  6  222 W     50 °C     42 °C     283 MB   196300 MB
+  7  221 W     50 °C     42 °C     283 MB   196300 MB
+  8  239 W     53 °C     46 °C     283 MB   196300 MB
+  9  239 W     53 °C     46 °C     283 MB   196300 MB
+ 10  239 W     53 °C     46 °C     283 MB   196300 MB
+ 11  239 W     53 °C     46 °C     283 MB   196300 MB
+ 12  219 W     51 °C     48 °C     283 MB   196300 MB
+ 13  219 W     51 °C     48 °C     283 MB   196300 MB
+ 14  219 W     51 °C     48 °C     283 MB   196300 MB
+ 15  219 W     51 °C     48 °C     283 MB   196300 MB
+ 16  222 W     51 °C     47 °C     283 MB   196300 MB
+ 17  222 W     51 °C     47 °C     283 MB   196300 MB
+ 18  222 W     51 °C     47 °C     283 MB   196300 MB
+ 19  222 W     51 °C     48 °C     283 MB   196300 MB
+ 20  241 W     55 °C     48 °C     283 MB   196300 MB
+ 21  241 W     55 °C     48 °C     283 MB   196300 MB
+ 22  241 W     55 °C     48 °C     283 MB   196300 MB
+ 23  240 W     55 °C     48 °C     283 MB   196300 MB
+ 24  211 W     51 °C     45 °C     283 MB   196300 MB
+ 25  211 W     51 °C     45 °C     283 MB   196300 MB
+ 26  211 W     51 °C     45 °C     283 MB   196300 MB
+ 27  211 W     51 °C     45 °C     283 MB   196300 MB
+ 28  227 W     51 °C     49 °C     283 MB   196300 MB
+ 29  227 W     51 °C     49 °C     283 MB   196300 MB
+ 30  227 W     51 °C     49 °C     283 MB   196300 MB
+ 31  227 W     51 °C     49 °C     283 MB   196300 MB
+```
+
+- **Fixed incorrect implementation of the Python API `amdsmi_get_gpu_metrics_header_info()`**.  
+
+- **`amdsmitst` TestGpuMetricsRead now prints metric in correct units**.  
+
+### Upcoming changes
+
+- **Python API for `amdsmi_get_energy_count()` will deprecate the `power` field in ROCm 6.4 and use `energy_accumulator` field instead**.  
+
+- **New memory and compute partition APIs incoming for ROCm 6.4**.  
+  - These APIs will be updated to fully populate the CLI and allowing compute (accelerator) partitions to be set by profile ID.
+  - One API will be provided, to reset both memory and compute (accelerator).
+    - There are dependencies regarding available compute partitions when in other memory modes.
+    - Driver will be providing these default modes
+    - Memory partition resets (for BM) require driver reloads - this will allow us to notify users before taking this action, then change to the default compute partition modes.
+  - The following APIs will remain:
+
+```C
+amdsmi_status_t
+amdsmi_set_gpu_compute_partition(amdsmi_processor_handle processor_handle,
+                                  amdsmi_compute_partition_type_t compute_partition);
+amdsmi_status_t
+amdsmi_get_gpu_compute_partition(amdsmi_processor_handle processor_handle,
+                                  char *compute_partition, uint32_t len);
+amdsmi_status_t
+amdsmi_get_gpu_memory_partition(amdsmi_processor_handle processor_handle,
+
+                                  char *memory_partition, uint32_t len);
+amdsmi_status_t
+amdsmi_set_gpu_memory_partition(amdsmi_processor_handle processor_handle,
+                                  amdsmi_memory_partition_type_t memory_partition);
+```
+
+- **amd-smi set --compute-partition "SPX/DPX/CPX..." will no longer be supported for ROCm 6.4**.  
+  - This is due to aligning with Host setups and providing more robust partition information through the APIs outlined above. Furthermore, new APIs which will be available on both BM/Host can set by profile ID. (functionality coming soon!)
+
+- **Added preliminary `amd-smi partition` command**.  
+  - The new partition command can be used to display GPU information, including memory and accelerator partition information.
+  - The command will be at full functionality once additional partition information from `amdsmi_get_gpu_accelerator_partition_profile()` has been implemented.
+
 ## amd_smi_lib for ROCm 6.2.1
 
-### Additions
+### Added
 
-- **Removed `amd-smi metric --ecc` & `amd-smi metric --ecc-blocks` on Guest VMs**.  
+- **Removed `amd-smi metric --ecc` & `amd-smi metric --ecc-blocks` on Guest VMs**.
 Guest VMs do not support getting current ECC counts from the Host cards.
 
-- **Added `amd-smi static --ras`on Guest VMs**.  
+- **Added `amd-smi static --ras`on Guest VMs**.
 Guest VMs can view enabled/disabled ras features that are on Host cards.
 
-### Optimizations
-
-- N/A
-
-### Fixes
+### Resolved issues
 
 - **Fixed TypeError in `amd-smi process -G`**.  
 
 - **Updated CLI error strings to handle empty and invalid GPU/CPU inputs**.  
 
-- **Fixed Guest VM showing passthrough options**.  
+- **Fixed Guest VM showing passthrough options**.
 
-- **Fixed firmware formatting where leading 0s were missing**.  
-
-### Known Issues
-
-- N/A
+- **Fixed firmware formatting where leading 0s were missing**.
 
 ## amd_smi_lib for ROCm 6.2.0
 
-### Additions
+### Added
 
 - **`amd-smi dmon` is now available as an alias to `amd-smi monitor`**.  
 
@@ -68,9 +792,9 @@ Added macros to reference max size limitations for certain amdsmi functions such
 - **Added Ring Hang event**.  
 Added `AMDSMI_EVT_NOTIF_RING_HANG` to the possible events in the `amdsmi_evt_notification_type_t` enum.
 
-### Optimizations
+### Optimized
 
-- **Updated CLI error strings to specify invalid device type queried**  
+- **Updated CLI error strings to specify invalid device type queried**
 
 ```shell
 $ amd-smi static --asic --gpu 123123
@@ -171,7 +895,7 @@ GPU: 0
 Updated sizes that work for retreiving relavant board information across AMD's
 ASIC products. This requires users to update any ABIs using this structure.
 
-### Fixes
+### Resolved issues
 
 - **Fixed Leftover Mutex deadlock when running multiple instances of the CLI tool**.  
 When running `amd-smi reset --gpureset --gpu all` and then running an instance of `amd-smi static` (or any other subcommand that access the GPUs) a mutex would lock and not return requiring either a clear of the mutex in /dev/shm or rebooting the machine.
@@ -221,13 +945,13 @@ structures data members which cannot be populated. Ensuring empty char string va
 - **Fixed parsing of `pp_od_clk_voltage` within `amdsmi_get_gpu_od_volt_info`**.  
 The parsing of `pp_od_clk_voltage` was not dynamic enough to work with the dropping of voltage curve support on MI series cards. This propagates down to correcting the CLI's output `amd-smi metric --voltage-curve` to N/A if voltage curve is not enabled.
 
-### Known Issues
+### Known issues
 
 - **`amdsmi_get_gpu_process_isolation` and `amdsmi_clean_gpu_local_data` commands do no currently work and will be supported in a future release**.  
 
 ## amd_smi_lib for ROCm 6.1.2
 
-### Additions
+### Added
 
 - **Added process isolation and clean shader APIs and CLI commands**.  
 Added APIs CLI and APIs to address LeftoverLocals security issues. Allowing clearing the sram data and setting process isolation on a per GPU basis. New APIs:
@@ -265,7 +989,7 @@ GPU: 1
         SHUTDOWN_VRAM_TEMPERATURE: 105 °C
 ```
 
-### Optimizations
+### Optimized
 
 - **Updated `amd-smi monitor --pcie` output**.  
 The source for pcie bandwidth monitor output was a legacy file we no longer support and was causing delays within the monitor command. The output is no longer using TX/RX but instantaneous bandwidth from gpu_metrics instead; updated output:
@@ -322,7 +1046,7 @@ GPU: 0
 - **Removed `amdsmi_get_gpu_process_info` from Python library**.  
 amdsmi_get_gpu_process_info was removed from the C library in an earlier build, but the API was still in the Python interface.
 
-### Fixes
+### Resolved issues
 
 - **Fixed `amd-smi metric --power` now provides power output for Navi2x/Navi3x/MI1x**.  
 These systems use an older version of gpu_metrics in amdgpu. This fix only updates what CLI outputs.
@@ -355,13 +1079,9 @@ Updates required `amdsmi_get_power_cap_info` to return in uW as originally refle
 - **Fixed Python interface call amdsmi_get_gpu_memory_reserved_pages & amdsmi_get_gpu_bad_page_info**.  
 Previously Python interface calls to populated bad pages resulted in a `ValueError: NULL pointer access`. This fixes the bad-pages subcommand CLI  subcommand as well.
 
-### Known Issues
-
-- N/A
-
 ## amd_smi_lib for ROCm 6.1.1
 
-### Changes
+### Changed
 
 - **Updated metrics --clocks**.  
 Output for `amd-smi metric --clock` is updated to reflect each engine and bug fixes for the clock lock status and deep sleep status.
@@ -631,13 +1351,13 @@ $ /opt/rocm/bin/amd-smi topology -a -t --json
 ]
 ```
 
-### Fixes
+### Resolved issues
 
 - **Fix for GPU reset error on non-amdgpu cards**.  
 Previously our reset could attempting to reset non-amd GPUS- resuting in "Unable to reset non-amd GPU" error. Fix
 updates CLI to target only AMD ASICs.
 
-- **Fix for `amd-smi metric --pcie` and `amdsmi_get_pcie_info()`Navi32/31 cards**.  
+- **Fix for `amd-smi static --pcie` and `amdsmi_get_pcie_info()` Navi32/31 cards**.  
 Updated API to include `amdsmi_card_form_factor_t.AMDSMI_CARD_FORM_FACTOR_CEM`. Prevously, this would report "UNKNOWN". This fix
 provides the correct board `SLOT_TYPE` associated with these ASICs (and other Navi cards).
 
@@ -653,7 +1373,7 @@ Fixed Attribute Error when getting process in csv format
 
 ## amd_smi_lib for ROCm 6.1.0
 
-### Additions
+### Added
 
 - **Added Monitor Command**.  
 Provides users the ability to customize GPU metrics to capture, collect, and observe. Output is provided in a table view. This aligns closer to ROCm SMI `rocm-smi` (no argument), additionally allows uers to customize what data is helpful for their use-case.
@@ -672,7 +1392,7 @@ Use the watch arguments to run continuously
 Monitor Arguments:
   -h, --help                   show this help message and exit
   -g, --gpu GPU [GPU ...]      Select a GPU ID, BDF, or UUID from the possible choices:
-                               ID: 0 | BDF: 0000:01:00.0 | UUID: 4eff74a0-0000-1000-802d-1d762a397f73
+                               ID: 0 | BDF: 0000:01:00.0 | UUID: <redacted>
                                  all | Selects all devices
   -U, --cpu CPU [CPU ...]      Select a CPU ID from the possible choices:
                                ID: 0
@@ -977,7 +1697,7 @@ amd-smi metric -p --json
 ]
 ```
 
-### Changes
+### Changed
 
 - **Topology is now left-aligned with BDF of each device listed individual table's row/coloumns**.  
 We provided each device's BDF for every table's row/columns, then left aligned data. We want AMD SMI Tool output to be easy to understand and digest for our users. Having users scroll up to find this information made it difficult to follow, especially for devices which have many devices associated with one ASIC.
@@ -1040,7 +1760,7 @@ NUMA BW TABLE:
 0000:df:00.0 50000-50000  50000-50000  50000-50000  50000-50000  50000-50000  50000-50000  50000-50000  N/A
 ```
 
-### Fixes
+### Resolved issues
 
 - **Fix for Navi3X/Navi2X/MI100 `amdsmi_get_gpu_pci_bandwidth()` in frequencies_read tests**.  
 Devices which do not report (eg. Navi3X/Navi2X/MI100) we have added checks to confirm these devices return AMDSMI_STATUS_NOT_SUPPORTED. Otherwise, tests now display a return string.
@@ -1061,7 +1781,7 @@ AMD SMI now uses same mutex handler for devices as rocm-smi. This helps avoid cr
 
 ## amd_smi_lib for ROCm 6.0.0
 
-### Additions
+### Added
 
 - **Integrated the E-SMI (EPYC-SMI) library**.  
 You can now query CPU-related information directly through AMD SMI. Metrics include power, energy, performance, and other system details.
@@ -1072,11 +1792,7 @@ You can now query MI300 device metrics to get real-time information. Metrics inc
 - **Compute and memory partition support**.  
 Users can now view, set, and reset partitions. The topology display can provide a more in-depth look at the device's current configuration.
 
-### Optimizations
-
-- Updated to C++17, gtest-1.14, and cmake 3.14
-
-### Changes
+### Changed
 
 - **GPU index sorting made consistent with other tools**.  
 To ensure alignment with other ROCm software tools, GPU index sorting is optimized to use Bus:Device.Function (BDF) rather than the card number.
@@ -1084,7 +1800,11 @@ To ensure alignment with other ROCm software tools, GPU index sorting is optimiz
 Earlier versions of the topology output were difficult to read since each GPU was displayed linearly.
 Now the information is displayed as a table by each GPU's BDF, which closer resembles rocm-smi output.
 
-### Fixes
+### Optimized
+
+- Updated to C++17, gtest-1.14, and cmake 3.14
+
+### Resolved issues
 
 - **Fix for driver not initialized**.  
 If driver module is not loaded, user retrieve error reponse indicating amdgpu module is not loaded.
