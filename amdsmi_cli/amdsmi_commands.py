@@ -4717,6 +4717,23 @@ class AMDSMICommands():
             self.logger.store_output(args.gpu, 'timestamp', int(time.time()))
             self.logger.table_header = 'TIMESTAMP'.rjust(10) + '  ' + self.logger.table_header
 
+        if args.loglevel == "DEBUG":
+            try:
+                # Get GPU Metrics table version
+                gpu_metric_version_info = amdsmi_interface.amdsmi_get_gpu_metrics_header_info(args.gpu)
+                gpu_metric_version_str = json.dumps(gpu_metric_version_info, indent=4)
+                logging.debug("GPU Metrics table Version for GPU %s | %s", gpu_id, gpu_metric_version_str)
+            except amdsmi_exception.AmdSmiLibraryException as e:
+                logging.debug("Unable to load GPU Metrics table version for %s | %s", gpu_id, e.err_info)
+
+            try:
+                # Get GPU Metrics table
+                gpu_metric_debug_info = amdsmi_interface.amdsmi_get_gpu_metrics_info(args.gpu)
+                gpu_metric_str = json.dumps(gpu_metric_debug_info, indent=4)
+                logging.debug("GPU Metrics table for GPU %s | %s", gpu_id, str(gpu_metric_str))
+            except amdsmi_exception.AmdSmiLibraryException as e:
+                logging.debug("Unable to load GPU Metrics table for %s | %s", gpu_id, e.err_info)
+
         # Store the pcie_bw values due to possible increase in bandwidth due to repeated gpu_metrics calls
         if args.pcie:
             try:
