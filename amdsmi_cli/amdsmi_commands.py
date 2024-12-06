@@ -4874,9 +4874,10 @@ class AMDSMICommands():
 
             self.logger.table_header += 'MEM_CLOCK'.rjust(11)
         if args.encoder:
+            # TODO: The encoding utilization is in progress for Navi. Note: MI3x ASICs only support decoding.
             try:
                 # Get List of vcn activity values
-                encoder_util = amdsmi_interface.amdsmi_get_gpu_metrics_info(args.gpu)['vcn_activity']
+                encoder_util = "N/A" # Not yet implemented
                 encoding_activity_avg = []
                 for value in encoder_util:
                     if isinstance(value, int):
@@ -4903,49 +4904,72 @@ class AMDSMICommands():
 
             self.logger.table_header += 'ENC_UTIL'.rjust(10)
 
-            try:
-                encoder_clock = amdsmi_interface.amdsmi_get_gpu_metrics_info(args.gpu)['current_vclk0']
-                monitor_values['encoder_clock'] = encoder_clock
-                freq_unit = 'MHz'
-                if encoder_clock != "N/A":
-                    if self.logger.is_human_readable_format():
-                        monitor_values['encoder_clock'] = f"{monitor_values['encoder_clock']} {freq_unit}"
-                    if self.logger.is_json_format():
-                        monitor_values['encoder_clock'] = {"value" : monitor_values['encoder_clock'],
-                                                           "unit" : freq_unit}
-            except amdsmi_exception.AmdSmiLibraryException as e:
-                monitor_values['encoder_clock'] = "N/A"
-                logging.debug("Failed to get encoder clock on gpu %s | %s", gpu_id, e.get_error_info())
-
-            self.logger.table_header += 'ENC_CLOCK'.rjust(11)
         if args.decoder:
             try:
-                decoder_util = "N/A" # Not yet implemented
-                monitor_values['decoder'] = decoder_util
-                # if self.logger.is_human_readable_format():
-                #     monitor_values['decoder'] = f"{monitor_values['decoder']} %"
+                # Get List of vcn activity values
+                # Note: MI3x ASICs only support decoding, so the vcn_activity is used for decoding activity. 
+                decoder_util = amdsmi_interface.amdsmi_get_gpu_metrics_info(args.gpu)['vcn_activity']
+                decoding_activity_avg = []
+                for value in decoder_util:
+                    if isinstance(value, int):
+                        decoding_activity_avg.append(value)
+
+                # Averaging the possible decoding activity values
+                if decoding_activity_avg:
+                    decoding_activity_avg = sum(decoding_activity_avg) / len(decoding_activity_avg)
+                else:
+                    decoding_activity_avg = "N/A"
+
+                monitor_values['decoder'] = decoding_activity_avg
+
+                activity_unit = '%'
+                if monitor_values['decoder'] != "N/A":
+                    if self.logger.is_human_readable_format():
+                        monitor_values['decoder'] = f"{monitor_values['decoder']} {activity_unit}"
+                    if self.logger.is_json_format():
+                        monitor_values['decoder'] = {"value" : monitor_values['decoder'],
+                                                    "unit" : activity_unit}
             except amdsmi_exception.AmdSmiLibraryException as e:
                 monitor_values['decoder'] = "N/A"
                 logging.debug("Failed to get decoder utilization on gpu %s | %s", gpu_id, e.get_error_info())
 
             self.logger.table_header += 'DEC_UTIL'.rjust(10)
 
+        if args.encoder or args.decoder:
             try:
-                decoder_clock = amdsmi_interface.amdsmi_get_gpu_metrics_info(args.gpu)['current_dclk0']
-                monitor_values['decoder_clock'] = decoder_clock
+                vclock = amdsmi_interface.amdsmi_get_gpu_metrics_info(args.gpu)['current_vclk0']
+                monitor_values['vclock'] = vclock
 
                 freq_unit = 'MHz'
-                if decoder_clock != "N/A":
+                if vclock != "N/A":
                     if self.logger.is_human_readable_format():
-                        monitor_values['decoder_clock'] = f"{monitor_values['decoder_clock']} {freq_unit}"
+                        monitor_values['vclock'] = f"{monitor_values['vclock']} {freq_unit}"
                     if self.logger.is_json_format():
-                        monitor_values['decoder_clock'] = {"value" : monitor_values['decoder_clock'],
+                        monitor_values['vclock'] = {"value" : monitor_values['vclock'],
                                                            "unit" : freq_unit}
             except amdsmi_exception.AmdSmiLibraryException as e:
-                monitor_values['decoder_clock'] = "N/A"
-                logging.debug("Failed to get decoder clock on gpu %s | %s", gpu_id, e.get_error_info())
+                monitor_values['vclock'] = "N/A"
+                logging.debug("Failed to get dclock on gpu %s | %s", gpu_id, e.get_error_info())
 
-            self.logger.table_header += 'DEC_CLOCK'.rjust(11)
+            self.logger.table_header += 'VCLOCK'.rjust(8)
+
+            try:
+                dclock = amdsmi_interface.amdsmi_get_gpu_metrics_info(args.gpu)['current_dclk0']
+                monitor_values['dclock'] = dclock
+
+                freq_unit = 'MHz'
+                if dclock != "N/A":
+                    if self.logger.is_human_readable_format():
+                        monitor_values['dclock'] = f"{monitor_values['dclock']} {freq_unit}"
+                    if self.logger.is_json_format():
+                        monitor_values['dclock'] = {"value" : monitor_values['dclock'],
+                                                           "unit" : freq_unit}
+            except amdsmi_exception.AmdSmiLibraryException as e:
+                monitor_values['dclock'] = "N/A"
+                logging.debug("Failed to get vclock on gpu %s | %s", gpu_id, e.get_error_info())
+
+            self.logger.table_header += 'DCLOCK'.rjust(8)
+
         if args.ecc:
             try:
                 ecc = amdsmi_interface.amdsmi_get_gpu_total_ecc_count(args.gpu)
