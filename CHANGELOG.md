@@ -12,6 +12,50 @@ Full documentation for amd_smi_lib is available at [https://rocm.docs.amd.com/pr
 
 ### Removed
 
+- **Removed `GFX_BUSY_ACC` from `amd-smi metric --usage`**.  
+  Displaying `GFX_BUSY_ACC` does not provide helpful outputs for users.  
+
+  Old output:  
+  ```shell
+  $ amd-smi metric --usage
+    GPU: 0
+        USAGE:
+            GFX_ACTIVITY: 0 %
+            UMC_ACTIVITY: 0 %
+            MM_ACTIVITY: N/A
+            VCN_ACTIVITY: [0 %, 0 %, 0 %, 0 %]
+            JPEG_ACTIVITY: [0 %, 0 %, 0 %, 0 %, 0 %, 0 %, 0 %, 0 %, 0 %, 0 %, 0 %, 0 %, 0 %, 0 %, 0 %, 0 %, 0 %, 0 %, 0 %, 0 %, 0 %, 0 %, 0 %, 0 %, 0 %, 0 %, 0 %, 0 %, 0 %, 0 %, 0 %, 0 %]
+            GFX_BUSY_INST:
+                XCP_0: [0 %, 0 %, 0 %, 0 %, 0 %, 0 %, 0 %, 0 %]
+            JPEG_BUSY:
+                XCP_0: [0 %, 0 %, 0 %, 0 %, 0 %, 0 %, 0 %, 0 %, 0 %, 0 %, 0 %, 0 %, 0 %, 0 %, 0 %, 0 %, 0 %, 0 %, 0 %, 0 %, 0 %, 0 %, 0 %, 0 %, 0 %, 0 %, 0 %, 0 %, 0 %, 0 %, 0 %, 0 %]
+            VCN_BUSY:
+                XCP_0: [0 %, 0 %, 0 %, 0 %]
+            GFX_BUSY_ACC:
+                XCP_0: [N/A, N/A, N/A, N/A, N/A, N/A, N/A, N/A]
+  ...
+  ```
+
+  New Output:  
+  ```shell
+  $ amd-smi metric --usage
+  GPU: 0
+      USAGE:
+          GFX_ACTIVITY: 0 %
+          UMC_ACTIVITY: 0 %
+          MM_ACTIVITY: N/A
+          VCN_ACTIVITY: [0 %, 0 %, 0 %, 0 %]
+          JPEG_ACTIVITY: [0 %, 0 %, 0 %, 0 %, 0 %, 0 %, 0 %, 0 %, 0 %, 0 %, 0 %, 0 %, 0 %, 0 %, 0 %, 0 %, 0 %, 0 %, 0 %, 0 %, 0 %, 0 %, 0 %, 0 %, 0 %, 0 %, 0 %, 0 %, 0 %, 0 %, 0 %, 0 %]
+          GFX_BUSY_INST:
+              XCP_0: [0 %, 0 %, 0 %, 0 %, 0 %, 0 %, 0 %, 0 %]
+          JPEG_BUSY:
+              XCP_0: [0 %, 0 %, 0 %, 0 %, 0 %, 0 %, 0 %, 0 %, 0 %, 0 %, 0 %, 0 %, 0 %, 0 %, 0 %, 0 %, 0 %, 0 %, 0 %, 0 %, 0 %, 0 %, 0 %, 0 %, 0 %, 0 %, 0 %, 0 %, 0 %, 0 %, 0 %, 0 %]
+          VCN_BUSY:
+              XCP_0: [0 %, 0 %, 0 %, 0 %]
+  ...
+  ```
+
+
 ### Optimized
 
 - **Modified `amd-smi` CLI to allow case insensitive arguments if the argument does not begin with a single dash**.  

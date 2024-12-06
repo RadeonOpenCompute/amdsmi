@@ -1471,7 +1471,6 @@ class AMDSMICommands():
                     engine_usage['gfx_busy_inst'] = "N/A"
                     engine_usage['jpeg_busy'] = "N/A"
                     engine_usage['vcn_busy'] = "N/A"
-                    engine_usage['gfx_busy_acc'] = "N/A"
 
                     if num_partition != "N/A":
                         # these are one after another, in order to display each in sub-sections
@@ -1489,11 +1488,6 @@ class AMDSMICommands():
                         for current_xcp in range(num_partition):
                             new_xcp_dict[f"xcp_{current_xcp}"] = gpu_metric['xcp_stats.vcn_busy'][current_xcp]
                         engine_usage['vcn_busy'] = new_xcp_dict
-
-                        new_xcp_dict = {}
-                        for current_xcp in range(num_partition):
-                            new_xcp_dict[f"xcp_{current_xcp}"] = gpu_metric['xcp_stats.gfx_busy_acc'][current_xcp]
-                        engine_usage['gfx_busy_acc'] = new_xcp_dict
 
                     logging.debug(f"After updates to engine_usage dictionary = {engine_usage}")
 
