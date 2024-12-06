@@ -4318,6 +4318,18 @@ class AMDSMICommands():
                     core_args_enabled = True
                     break
 
+        # Error if no subcommand args are passed
+        if self.helpers.is_baremetal():
+            if not any([args.gpu, args.fan, args.perf_level, args.profile, args.perf_determinism, \
+                        args.compute_partition, args.memory_partition, args.power_cap,\
+                        args.soc_pstate, args.xgmi_plpd, args.clk_limit, args.process_isolation]):
+                command = " ".join(sys.argv[1:])
+                raise AmdSmiRequiredCommandException(command, self.logger.format)
+        else:
+            if not any([args.clean_local_data]):
+                command = " ".join(sys.argv[1:])
+                raise AmdSmiRequiredCommandException(command, self.logger.format)
+
         # Only allow one device's arguments to be set at a time
         if not any([gpu_args_enabled, cpu_args_enabled, core_args_enabled]):
             raise ValueError('No GPU, CPU, or CORE arguments provided, specific arguments are needed')
