@@ -1304,7 +1304,7 @@ struct_amdsmi_evt_notification_data_t._pack_ = 1 # source:False
 struct_amdsmi_evt_notification_data_t._fields_ = [
     ('processor_handle', ctypes.POINTER(None)),
     ('event', amdsmi_evt_notification_type_t),
-    ('message', ctypes.c_char * 64),
+    ('message', ctypes.c_char * 96),
     ('PADDING_0', ctypes.c_ubyte * 4),
 ]
 
