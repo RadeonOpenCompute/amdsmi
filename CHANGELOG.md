@@ -45,6 +45,72 @@ GPU2   0000:46:00.0 32 Gb/s  512 Gb/s      XGMI
 
 ### Known issues
 
+- **AMD SMI only reports 63 GPU devices when setting CPX on all 8 GPUs**  
+    When setting CPX as a partition mode, there is a DRM node limitation of 64.  
+
+    This is a known limitation of the Linux kernel, not the driver. Other drivers, such as those using PCIe space (e.g., ast), may be occupying the necessary DRM nodes.   
+
+    The number of DRM nodes used can be checked via `ls /sys/class/drm`  
+
+    Options are as follows:
+    1) ***Workaround - removing other devices using DRM nodes***  
+
+        Recommended steps for removing unnecessary drivers:  
+        a. Unload amdgpu - `sudo rmmod amdgpu`  
+        b. Remove unnecessary driver(s) - ex. `sudo rmmod ast`  
+        c. Reload amgpu - `sudo modprobe amdgpu`  
+        d. Confirm `amd-smi list` reports all nodes (this can vary per MI ASIC)
+
+    2) ***Update your OS' kernel***  
+        Typically you can find examples online by searching "`Update kernel <your OS version> command line`"
+
+        Ex. "Update kernel Ubuntu 22.04 command line" should provide some good examples.  
+        https://phoenixnap.com/kb/how-to-update-kernel-ubuntu
+
+    3) ***Building and installing your own kernel***  
+        *This option is helpful for users on OS distributions that have not yet merged the necessary changes.*  
+        https://phoenixnap.com/kb/build-linux-kernel
+    
+        All changes are in the mainline kernel if users need to build their own.
+    
+        References to kernel changes:
+        ```text
+        for libdrm :
+        Author: James Zhu <James.Zhu@amd.com>
+    
+        Date:   Mon Aug 7 10:14:18 2023 -0400
+        
+            xf86drm: use drm device name to identify drm node type
+    
+            Currently drm node's minor range is used to identify node's type.
+    
+            Since kernel drm uses node type name and minor to generate drm
+    
+            device name, It will be more general to use drm device name to
+    
+            identify drm node type.
+    
+            Signed-off-by: James Zhu <James.Zhu@amd.com>
+    
+            Reviewed-by: Simon Ser <contact@emersion.fr>
+        
+        commit 1080273c2b31db6f031a7f889f3104f53ab4502c
+    
+        Author: James Zhu <James.Zhu@amd.com>
+    
+        Date:   Mon Aug 7 10:06:32 2023 -0400
+        
+            xf86drm: update DRM_NODE_NAME_MAX supporting more nodes
+    
+            Current DRM_NODE_NAME_MAX only can support up to 999 nodes,
+    
+            Update to support up to 2^MINORBITS nodes.
+    
+            Signed-off-by: James Zhu <James.Zhu@amd.com>
+    
+            Reviewed-by: Simon Ser <contact@emersion.fr>
+        ```
+
 ## amd_smi_lib for ROCm 6.3.1
 
 ### Added
