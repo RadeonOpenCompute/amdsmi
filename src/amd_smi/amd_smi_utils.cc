@@ -582,6 +582,9 @@ amdsmi_status_t smi_amdgpu_get_market_name_from_dev_id(uint32_t device_id, char 
         case 0x74b6:
             strcpy(market_name, "MI308X");
             break;
+        case 0x74a5:
+            strcpy(market_name, "AMD Instinct MI325X");
+            break;
         case 0x74a9:
         case 0x74bd:
             strcpy(market_name, "AMD Instinct MI300X HF");
