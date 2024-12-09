@@ -1653,7 +1653,7 @@ def amdsmi_get_gpu_asic_info(
 
     market_name = _pad_hex_value(asic_info_struct.market_name.decode("utf-8"), 4)
     target_graphics_version = str(asic_info_struct.target_graphics_version)
-    if len(target_graphics_version) == 4 and ("Instinct MI2" in market_name):
+    if target_graphics_version == "9010":
         hex_part = str(hex(int(str(asic_info_struct.target_graphics_version)[2:]))).replace("0x", "")
         target_graphics_version = str(asic_info_struct.target_graphics_version)[:2] + hex_part
     asic_info = {
