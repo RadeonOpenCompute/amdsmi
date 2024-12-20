@@ -4,6 +4,84 @@ Full documentation for amd_smi_lib is available at [https://rocm.docs.amd.com/pr
 
 ***All information listed below is for reference and subject to change.***
 
+## amd_smi_lib for ROCm 6.3.1
+
+### Added
+
+### Changed
+
+- **Changed `amd-smi monitor`: No longer display `ENC_CLOCK`/`DEC_CLOCK` but `VCLOCK` and `DCLOCK`**.  
+  Due to fix mentioned in `Resolved Issues`, this change was needed.  
+  Reason: Navi products use vclk and dclk for both encode and decode. On MI products, only decode is supported.  
+  Before:
+  ```shell
+  $ amd-smi monitor -n -d
+  GPU  ENC_UTIL  ENC_CLOCK  DEC_UTIL  DEC_CLOCK
+    0     0.0 %     29 MHz       N/A     22 MHz
+    1     0.0 %     29 MHz       N/A     22 MHz
+    2     0.0 %     29 MHz       N/A     22 MHz
+    3     0.0 %     29 MHz       N/A     22 MHz
+    4     0.0 %     29 MHz       N/A     22 MHz
+    5     0.0 %     29 MHz       N/A     22 MHz
+    6     0.0 %     29 MHz       N/A     22 MHz
+    7     0.0 %     29 MHz       N/A     22 MHz
+  ```
+  After:
+  ```shell
+  $ amd-smi monitor -n -d
+  GPU  ENC_UTIL  DEC_UTIL  VCLOCK  DCLOCK
+    0       N/A     0.0 %  29 MHz  22 MHz
+    1       N/A     0.0 %  29 MHz  22 MHz
+    2       N/A     0.0 %  29 MHz  22 MHz
+    3       N/A     0.0 %  29 MHz  22 MHz
+    4       N/A     0.0 %  29 MHz  22 MHz
+    5       N/A     0.0 %  29 MHz  22 MHz
+    6       N/A     0.0 %  29 MHz  22 MHz
+    7       N/A     0.0 %  29 MHz  22 MHz
+  ```
+
+### Removed
+
+### Optimized
+
+### Resolved issues
+
+- **Fixed `amd-smi monitor`'s encode/decode: `ENC_UTIL`, `DEC_UTIL`, and now associate `VCLOCK`/`DCLOCK` with both**.  
+  Navi products use vclk and dclk for both encode and decode. On MI products, only decode is supported. 
+
+  Navi products cannot support displaying ENC_UTIL % at this time.  
+
+  Before:
+  ```shell
+  $ amd-smi monitor -n -d
+  GPU  ENC_UTIL  ENC_CLOCK  DEC_UTIL  DEC_CLOCK
+    0     0.0 %     29 MHz       N/A     22 MHz
+    1     0.0 %     29 MHz       N/A     22 MHz
+    2     0.0 %     29 MHz       N/A     22 MHz
+    3     0.0 %     29 MHz       N/A     22 MHz
+    4     0.0 %     29 MHz       N/A     22 MHz
+    5     0.0 %     29 MHz       N/A     22 MHz
+    6     0.0 %     29 MHz       N/A     22 MHz
+    7     0.0 %     29 MHz       N/A     22 MHz
+  ```
+  After:
+  ```shell
+  $ amd-smi monitor -n -d
+  GPU  ENC_UTIL  DEC_UTIL  VCLOCK  DCLOCK
+    0       N/A     0.0 %  29 MHz  22 MHz
+    1       N/A     0.0 %  29 MHz  22 MHz
+    2       N/A     0.0 %  29 MHz  22 MHz
+    3       N/A     0.0 %  29 MHz  22 MHz
+    4       N/A     0.0 %  29 MHz  22 MHz
+    5       N/A     0.0 %  29 MHz  22 MHz
+    6       N/A     0.0 %  29 MHz  22 MHz
+    7       N/A     0.0 %  29 MHz  22 MHz
+  ```
+
+### Upcoming changes
+
+### Known issues
+
 ## amd_smi_lib for ROCm 6.3.0
 
 ### Added

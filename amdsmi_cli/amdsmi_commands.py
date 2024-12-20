@@ -3921,7 +3921,8 @@ class AMDSMICommands():
                 command = " ".join(sys.argv[1:])
                 raise AmdSmiRequiredCommandException(command, self.logger.format)
         else:
-            if not any([args.process_isolation is not None]):
+            if not any([args.process_isolation is not None,
+                        args.clk_limit is not None]):
                 command = " ".join(sys.argv[1:])
                 raise AmdSmiRequiredCommandException(command, self.logger.format)
 
@@ -3978,18 +3979,20 @@ class AMDSMICommands():
                     raise ValueError(f"Unable to set compute partition to {args.compute_partition} on {gpu_string}") from e
                 self.logger.store_output(args.gpu, 'computepartition', f"Successfully set compute partition to {args.compute_partition}")
             if args.memory_partition:
+                lock = multiprocessing.Lock()
+                lock.acquire()
                 ####################################################################
                 # Get current and available memory partition modes                 #
                 # Info used if AMDSMI_STATUS_INVAL is caught & to set progress bar #
                 ####################################################################
                 try:
-                    memory_partition = amdsmi_interface.amdsmi_get_gpu_memory_partition(gpu) # this info likely actually comes from different apis than used here
+                    memory_partition = amdsmi_interface.amdsmi_get_gpu_memory_partition(args.gpu) # this info likely actually comes from different apis than used here
                 except amdsmi_exception.AmdSmiLibraryException as e:
                     memory_partition = "N/A"
                     logging.debug("Failed to get current memory partition for GPU %s | %s", gpu_id, e.get_error_info())
                 try:
                     mem_caps_str = "N/A"
-                    partition_dict = amdsmi_interface.amdsmi_get_gpu_accelerator_partition_profile(gpu)
+                    partition_dict = amdsmi_interface.amdsmi_get_gpu_accelerator_partition_profile(args.gpu)
                     temp_mem_caps = partition_dict['partition_profile']['memory_caps']
                     mem_caps = temp_mem_caps.nps_cap_mask
                     if temp_mem_caps.amdsmi_nps_flags_t == None:
@@ -4032,48 +4035,92 @@ class AMDSMICommands():
                                             # 2) Requested mode is a valid mode to set
                                             # 3) Current is not already the requested mode
                                             # otherwise function will return fast
+                else:
+                    showProgressBar = False
+
                 threads = []
-                kTimeWait = 40
+                k140secs = 140
+                string_out = f"Updating memory partition for gpu {gpu_id}"
+                timesToRetryRestartErr = 1
+
                 self.helpers.increment_set_count()
                 set_count = self.helpers.get_set_count()
                 if set_count == 1: # only show reload warning on 1st set
                     self.helpers.confirm_changing_memory_partition_gpu_reload_warning()
-                memory_partition = amdsmi_interface.AmdSmiMemoryPartitionType[args.memory_partition]
-                try:
-                    if set_count == 1 and showProgressBar: # only show reload warning on 1st set
-                        string_out = f"Updating memory partition for gpu {gpu_id}"
-                        t1 = multiprocessing.Process(target=self.helpers.showProgressbar,
-                                                    args=(string_out, kTimeWait,))
-                        threads.append(t1)
-                        t1.start()
-                    amdsmi_interface.amdsmi_set_gpu_memory_partition(args.gpu, memory_partition)
-                    for thread in threads:
-                        thread.terminate()
-                        thread.join()
 
-                except amdsmi_exception.AmdSmiLibraryException as e:
-                    f = open(os.devnull, 'w') #redirect to /dev/null (crossplatform)
-                    print("\n\n", end='\r', flush=True, file=f)
-                    for thread in threads:
-                        thread.join()
-                        thread.terminate()
+                while timesToRetryRestartErr >= 0:
+                    timesToRetryRestartErr -= 1
+                    try:
+                        if showProgressBar: # only show reload warning on 1st set
+                            t1 = multiprocessing.Process(target=self.helpers.showProgressbar,
+                                                        args=(string_out, k140secs,))
+                            threads.append(t1)
+                            t1.start()
+                        memory_partition = amdsmi_interface.AmdSmiMemoryPartitionType[args.memory_partition]
+                        amdsmi_interface.amdsmi_set_gpu_memory_partition(args.gpu, memory_partition)
+                        for thread in threads:
+                            thread.terminate()
+                            print("")
+                        break # successful case
 
-                    if e.get_error_code() == amdsmi_interface.amdsmi_wrapper.AMDSMI_STATUS_NO_PERM:
-                        raise PermissionError('Command requires elevation') from e
-                    if e.get_error_code() == amdsmi_interface.amdsmi_wrapper.AMDSMI_STATUS_INVAL:
-                        print(f"[amdsmi_wrapper.AMDSMI_STATUS_INVAL] Unable to set memory partition to {args.memory_partition} on {gpu_string}")
-                        print(f"Valid Memory partition Modes: {mem_caps_str}\n")
-                        # fall through for value error
+                    except amdsmi_exception.AmdSmiLibraryException as e:
+                        f = open(os.devnull, 'w') #redirect to /dev/null (crossplatform)
+                        print("\n\n", end='\r', flush=True, file=f)
+                        for thread in threads:
+                            thread.terminate()
 
-                    f = open(os.devnull, 'w') #redirect to /dev/null (crossplatform)
-                    print("\n\n", end='\r', flush=True, file=f)
-                    raise ValueError(f"Unable to set memory partition to {args.memory_partition} on {gpu_string}") from e
-                except Exception as e:
-                    for thread in threads:
-                        thread.join()
-                        thread.terminate()
-                    raise ValueError(f"Generic error found | Unable to set memory partition to {args.memory_partition} on {gpu_string}") from e
-                self.logger.store_output(args.gpu, 'memorypartition', f"Successfully set memory partition to {args.memory_partition}")
+                        if e.get_error_code() == amdsmi_interface.amdsmi_wrapper.AMDSMI_STATUS_NO_PERM:
+                            raise PermissionError('Command requires elevation') from e
+                        if e.get_error_code() == amdsmi_interface.amdsmi_wrapper.AMDSMI_STATUS_INVAL:
+                            out = f"[AMDSMI_STATUS_INVAL] Unable to set memory partition to {args.memory_partition} on {gpu_string}"
+                            print(f"Valid Memory partition Modes: {mem_caps_str}\n")
+                            self.logger.store_output(args.gpu, 'memory_partition', out)
+                            self.logger.print_output()
+                            self.logger.clear_multiple_devices_ouput()
+                            lock.release()
+                            return
+                        if e.get_error_code() == amdsmi_interface.amdsmi_wrapper.AMDSMI_STATUS_NOT_SUPPORTED:
+                            out = f"[AMDSMI_STATUS_NOT_SUPPORTED] Device does not support setting memory partition to {args.memory_partition} on {gpu_string}"
+                            self.logger.store_output(args.gpu, 'memory_partition', out)
+                            self.logger.print_output()
+                            self.logger.clear_multiple_devices_ouput()
+                            lock.release()
+                            return
+                        if e.get_error_code() == amdsmi_interface.amdsmi_wrapper.AMDSMI_STATUS_AMDGPU_RESTART_ERR:
+                            # Try again on a failure -> work around for not being able to close libdrm
+                            string_out = f"Trying again - Updating memory partition for gpu {gpu_id}"
+                            for thread in threads:
+                                thread.terminate()
+                                thread.join()
+                            if timesToRetryRestartErr < 0:
+                                out = f"[AMDSMI_STATUS_AMDGPU_RESTART_ERR] Could not successfully restart driver after applying {args.memory_partition} on {gpu_string}"
+                                self.logger.store_output(args.gpu, 'memory_partition', out)
+                                self.logger.print_output()
+                                self.logger.clear_multiple_devices_ouput()
+                                return
+                            continue
+
+                        f = open(os.devnull, 'w') #redirect to /dev/null (crossplatform)
+                        print("\n\n", end='\r', flush=True, file=f)
+                        out = f"Unable to set memory partition to {args.memory_partition} on {gpu_string}"
+                        print(out)
+                        self.logger.store_output(args.gpu, 'memorypartition', out)
+                        self.logger.print_output()
+                        self.logger.clear_multiple_devices_ouput()
+                        lock.release()
+                        return
+                    except Exception as e:
+                        for thread in threads:
+                            thread.terminate()
+                        out = f"Generic error found | Unable to set memory partition to {args.memory_partition} on {gpu_string}"
+                        print(out)
+                        lock.release()
+                        raise ValueError(f"Generic error found | Unable to set memory partition to {args.memory_partition} on {gpu_string}") from e
+                self.logger.store_output(args.gpu, 'memory_partition', f"Successfully set memory partition to {args.memory_partition}")
+                self.logger.print_output()
+                self.logger.clear_multiple_devices_ouput()
+                lock.release()
+                return
             if isinstance(args.power_cap, int):
                 try:
                     power_cap_info = amdsmi_interface.amdsmi_get_power_cap_info(args.gpu)
@@ -4120,48 +4167,48 @@ class AMDSMICommands():
                         raise PermissionError('Command requires elevation') from e
                     raise ValueError(f"Unable to set XGMI policy to {args.xgmi_plpd} on {gpu_string}") from e
                 self.logger.store_output(args.gpu, 'xgmiplpd', f"Successfully set per-link power down policy to id {args.xgmi_plpd}")
-            if isinstance(args.clk_limit, tuple):
-                clk_type = args.clk_limit.clk_type
-                lim_type = args.clk_limit.lim_type
-                val = args.clk_limit.val
-                val_changed = True # Assume Clock limit value is changed
+        if isinstance(args.clk_limit, tuple):
+            clk_type = args.clk_limit.clk_type
+            lim_type = args.clk_limit.lim_type
+            val = args.clk_limit.val
+            val_changed = True # Assume Clock limit value is changed
 
-                # Validate the value against the extremum
-                try:
-                    # Parser only allows two options sclk or mclk
-                    if clk_type == "sclk":
-                        amdsmi_clk_type =  amdsmi_interface.AmdSmiClkType.GFX
-                    elif clk_type == "mclk":
-                        amdsmi_clk_type =  amdsmi_interface.AmdSmiClkType.MEM
-                    clk_tuple = amdsmi_interface.amdsmi_get_clock_info(args.gpu, amdsmi_clk_type)
+            # Validate the value against the extremum
+            try:
+                # Parser only allows two options sclk or mclk
+                if clk_type == "sclk":
+                    amdsmi_clk_type =  amdsmi_interface.AmdSmiClkType.GFX
+                elif clk_type == "mclk":
+                    amdsmi_clk_type =  amdsmi_interface.AmdSmiClkType.MEM
+                clk_tuple = amdsmi_interface.amdsmi_get_clock_info(args.gpu, amdsmi_clk_type)
 
-                    if lim_type == "min":
-                        if val > clk_tuple['max_clk']:
-                            raise IndexError("cannot set min value greater than max")
-                        if val == clk_tuple['min_clk']:
-                            val_changed = False # Clock limit value did not changed
+                if lim_type == "min":
+                    if val > clk_tuple['max_clk']:
+                        raise IndexError("cannot set min value greater than max")
+                    if val == clk_tuple['min_clk']:
+                        val_changed = False # Clock limit value did not changed
 
-                    if lim_type == "max":
-                        if val < clk_tuple['min_clk']:
-                            raise IndexError("cannot set max value less than min")
-                        if val == clk_tuple['max_clk']:
-                            val_changed = False # Clock limit value did not changed
-                except amdsmi_exception.AmdSmiLibraryException as e:
-                    logging.debug("Failed to get clock extremum info for gpu %s | %s", gpu_id, e.get_error_info())
+                if lim_type == "max":
+                    if val < clk_tuple['min_clk']:
+                        raise IndexError("cannot set max value less than min")
+                    if val == clk_tuple['max_clk']:
+                        val_changed = False # Clock limit value did not changed
+            except amdsmi_exception.AmdSmiLibraryException as e:
+                logging.debug("Failed to get clock extremum info for gpu %s | %s", gpu_id, e.get_error_info())
 
-                # Set the value
-                try:
-                    if val_changed:
-                        amdsmi_interface.amdsmi_set_gpu_clk_limit(args.gpu, clk_type, lim_type, val)
-                except amdsmi_exception.AmdSmiLibraryException as e:
-                    if e.get_error_code() == amdsmi_interface.amdsmi_wrapper.AMDSMI_STATUS_NO_PERM:
-                        raise PermissionError('Command requires elevation') from e
-                    raise ValueError(f"Unable to set {args.clk_limit.lim_type} of {args.clk_limit.clk_type} to {args.clk_limit.val} on {gpu_string}") from e
-
+            # Set the value
+            try:
                 if val_changed:
-                    self.logger.store_output(args.gpu, 'clk_limit', f"Successfully changed {args.clk_limit.lim_type} of {args.clk_limit.clk_type} to {args.clk_limit.val}")
-                else:
-                    self.logger.store_output(args.gpu, 'clk_limit', f"Clock limit is already set to {args.clk_limit.val}")
+                    amdsmi_interface.amdsmi_set_gpu_clk_limit(args.gpu, clk_type, lim_type, val)
+            except amdsmi_exception.AmdSmiLibraryException as e:
+                if e.get_error_code() == amdsmi_interface.amdsmi_wrapper.AMDSMI_STATUS_NO_PERM:
+                    raise PermissionError('Command requires elevation') from e
+                raise ValueError(f"Unable to set {args.clk_limit.lim_type} of {args.clk_limit.clk_type} to {args.clk_limit.val} on {gpu_string}") from e
+
+            if val_changed:
+                self.logger.store_output(args.gpu, 'clk_limit', f"Successfully changed {args.clk_limit.lim_type} of {args.clk_limit.clk_type} to {args.clk_limit.val}")
+            else:
+                self.logger.store_output(args.gpu, 'clk_limit', f"Clock limit is already set to {args.clk_limit.val}")
 
         if isinstance(args.process_isolation, int):
             status_string = "Enabled" if args.process_isolation else "Disabled"
@@ -4799,9 +4846,10 @@ class AMDSMICommands():
 
             self.logger.table_header += 'MEM_CLOCK'.rjust(11)
         if args.encoder:
+            # TODO: The encoding utilization is in progress for Navi. Note: MI3x ASICs only support decoding.
             try:
                 # Get List of vcn activity values
-                encoder_util = amdsmi_interface.amdsmi_get_gpu_metrics_info(args.gpu)['vcn_activity']
+                encoder_util = "N/A" # Not yet implemented
                 encoding_activity_avg = []
                 for value in encoder_util:
                     if isinstance(value, int):
@@ -4828,49 +4876,72 @@ class AMDSMICommands():
 
             self.logger.table_header += 'ENC_UTIL'.rjust(10)
 
-            try:
-                encoder_clock = amdsmi_interface.amdsmi_get_gpu_metrics_info(args.gpu)['current_vclk0']
-                monitor_values['encoder_clock'] = encoder_clock
-                freq_unit = 'MHz'
-                if encoder_clock != "N/A":
-                    if self.logger.is_human_readable_format():
-                        monitor_values['encoder_clock'] = f"{monitor_values['encoder_clock']} {freq_unit}"
-                    if self.logger.is_json_format():
-                        monitor_values['encoder_clock'] = {"value" : monitor_values['encoder_clock'],
-                                                           "unit" : freq_unit}
-            except amdsmi_exception.AmdSmiLibraryException as e:
-                monitor_values['encoder_clock'] = "N/A"
-                logging.debug("Failed to get encoder clock on gpu %s | %s", gpu_id, e.get_error_info())
-
-            self.logger.table_header += 'ENC_CLOCK'.rjust(11)
         if args.decoder:
             try:
-                decoder_util = "N/A" # Not yet implemented
-                monitor_values['decoder'] = decoder_util
-                # if self.logger.is_human_readable_format():
-                #     monitor_values['decoder'] = f"{monitor_values['decoder']} %"
+                # Get List of vcn activity values
+                # Note: MI3x ASICs only support decoding, so the vcn_activity is used for decoding activity. 
+                decoder_util = amdsmi_interface.amdsmi_get_gpu_metrics_info(args.gpu)['vcn_activity']
+                decoding_activity_avg = []
+                for value in decoder_util:
+                    if isinstance(value, int):
+                        decoding_activity_avg.append(value)
+
+                # Averaging the possible decoding activity values
+                if decoding_activity_avg:
+                    decoding_activity_avg = sum(decoding_activity_avg) / len(decoding_activity_avg)
+                else:
+                    decoding_activity_avg = "N/A"
+
+                monitor_values['decoder'] = decoding_activity_avg
+
+                activity_unit = '%'
+                if monitor_values['decoder'] != "N/A":
+                    if self.logger.is_human_readable_format():
+                        monitor_values['decoder'] = f"{monitor_values['decoder']} {activity_unit}"
+                    if self.logger.is_json_format():
+                        monitor_values['decoder'] = {"value" : monitor_values['decoder'],
+                                                    "unit" : activity_unit}
             except amdsmi_exception.AmdSmiLibraryException as e:
                 monitor_values['decoder'] = "N/A"
                 logging.debug("Failed to get decoder utilization on gpu %s | %s", gpu_id, e.get_error_info())
 
             self.logger.table_header += 'DEC_UTIL'.rjust(10)
 
+        if args.encoder or args.decoder:
             try:
-                decoder_clock = amdsmi_interface.amdsmi_get_gpu_metrics_info(args.gpu)['current_dclk0']
-                monitor_values['decoder_clock'] = decoder_clock
+                vclock = amdsmi_interface.amdsmi_get_gpu_metrics_info(args.gpu)['current_vclk0']
+                monitor_values['vclock'] = vclock
 
                 freq_unit = 'MHz'
-                if decoder_clock != "N/A":
+                if vclock != "N/A":
                     if self.logger.is_human_readable_format():
-                        monitor_values['decoder_clock'] = f"{monitor_values['decoder_clock']} {freq_unit}"
+                        monitor_values['vclock'] = f"{monitor_values['vclock']} {freq_unit}"
                     if self.logger.is_json_format():
-                        monitor_values['decoder_clock'] = {"value" : monitor_values['decoder_clock'],
+                        monitor_values['vclock'] = {"value" : monitor_values['vclock'],
                                                            "unit" : freq_unit}
             except amdsmi_exception.AmdSmiLibraryException as e:
-                monitor_values['decoder_clock'] = "N/A"
-                logging.debug("Failed to get decoder clock on gpu %s | %s", gpu_id, e.get_error_info())
+                monitor_values['vclock'] = "N/A"
+                logging.debug("Failed to get dclock on gpu %s | %s", gpu_id, e.get_error_info())
 
-            self.logger.table_header += 'DEC_CLOCK'.rjust(11)
+            self.logger.table_header += 'VCLOCK'.rjust(8)
+
+            try:
+                dclock = amdsmi_interface.amdsmi_get_gpu_metrics_info(args.gpu)['current_dclk0']
+                monitor_values['dclock'] = dclock
+
+                freq_unit = 'MHz'
+                if dclock != "N/A":
+                    if self.logger.is_human_readable_format():
+                        monitor_values['dclock'] = f"{monitor_values['dclock']} {freq_unit}"
+                    if self.logger.is_json_format():
+                        monitor_values['dclock'] = {"value" : monitor_values['dclock'],
+                                                           "unit" : freq_unit}
+            except amdsmi_exception.AmdSmiLibraryException as e:
+                monitor_values['dclock'] = "N/A"
+                logging.debug("Failed to get vclock on gpu %s | %s", gpu_id, e.get_error_info())
+
+            self.logger.table_header += 'DCLOCK'.rjust(8)
+
         if args.ecc:
             try:
                 ecc = amdsmi_interface.amdsmi_get_gpu_total_ecc_count(args.gpu)
@@ -5504,7 +5575,14 @@ class AMDSMICommands():
                 events = listener.read(2000)
                 for event in events:
                     values_dict["event"] = event["event"]
-                    values_dict["message"] = event["message"]
+                    # parse message as it's own dictionary
+                    message_list = event["message"].split("  ")
+                    message_dict = {}
+                    for item in message_list:
+                        if not item == "":
+                            item_list = item.split(": ")
+                            message_dict.update({item_list[0]: item_list[1]})
+                    values_dict["message"] = message_dict
                     commands.logger.store_output(device, 'values', values_dict)
                     commands.logger.print_output()
             except amdsmi_exception.AmdSmiLibraryException as e:
