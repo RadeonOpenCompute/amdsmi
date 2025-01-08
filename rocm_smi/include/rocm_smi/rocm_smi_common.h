@@ -28,6 +28,7 @@
 #include <vector>
 #include <string>
 #include <unordered_set>
+#include <stdint.h>
 
 #define CHECK_DV_IND_RANGE \
     amd::smi::RocmSMI& smi = amd::smi::RocmSMI::getInstance(); \
