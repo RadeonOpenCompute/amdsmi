@@ -683,10 +683,7 @@ rsmi_status_t GpuMetricsBase_v16_t::populate_metrics_dynamic_tbl() {
   ss << __PRETTY_FUNCTION__ << " | ======= start =======";
   LOG_TRACE(ss);
 
-  if (!m_metrics_dynamic_tbl.empty()) {
-    m_metrics_dynamic_tbl.clear();
-  }
-
+  auto m_metrics_dynamic_tbl = AMDGpuDynamicMetricsTbl_t{};
   //
   //  Note: Any metric treatment/changes (if any) should happen before they
   //        get written to internal/external tables.
@@ -915,6 +912,12 @@ rsmi_status_t GpuMetricsBase_v16_t::populate_metrics_dynamic_tbl() {
               << " |";
   LOG_TRACE(ss);
 
+  // Copy to base class
+  std::copy(m_metrics_dynamic_tbl.begin(),
+            m_metrics_dynamic_tbl.end(),
+            std::inserter(GpuMetricsBase_t::m_base_metrics_dynamic_tbl,
+                          GpuMetricsBase_t::m_base_metrics_dynamic_tbl.end()));
+
   return status_code;
 }
 
@@ -1032,10 +1035,7 @@ rsmi_status_t GpuMetricsBase_v15_t::populate_metrics_dynamic_tbl() {
   ss << __PRETTY_FUNCTION__ << " | ======= start =======";
   LOG_TRACE(ss);
 
-  if (!m_metrics_dynamic_tbl.empty()) {
-    m_metrics_dynamic_tbl.clear();
-  }
-
+  auto m_metrics_dynamic_tbl = AMDGpuDynamicMetricsTbl_t{};
   //
   //  Note: Any metric treatment/changes (if any) should happen before they
   //        get written to internal/external tables.
@@ -1252,6 +1252,12 @@ rsmi_status_t GpuMetricsBase_v15_t::populate_metrics_dynamic_tbl() {
               << " |";
   LOG_TRACE(ss);
 
+  // Copy to base class
+  std::copy(m_metrics_dynamic_tbl.begin(),
+            m_metrics_dynamic_tbl.end(),
+            std::inserter(GpuMetricsBase_t::m_base_metrics_dynamic_tbl,
+                          GpuMetricsBase_t::m_base_metrics_dynamic_tbl.end()));
+
   return status_code;
 }
 
@@ -1361,10 +1367,7 @@ rsmi_status_t GpuMetricsBase_v14_t::populate_metrics_dynamic_tbl() {
   ss << __PRETTY_FUNCTION__ << " | ======= start =======";
   LOG_TRACE(ss);
 
-  if (!m_metrics_dynamic_tbl.empty()) {
-    m_metrics_dynamic_tbl.clear();
-  }
-
+  auto m_metrics_dynamic_tbl = AMDGpuDynamicMetricsTbl_t{};
   //
   //  Note: Any metric treatment/changes (if any) should happen before they
   //        get written to internal/external tables.
@@ -1565,6 +1568,12 @@ rsmi_status_t GpuMetricsBase_v14_t::populate_metrics_dynamic_tbl() {
      << " | Returning = " << getRSMIStatusString(status_code)
      << " |";
   LOG_TRACE(ss);
+
+  // Copy to base class
+  std::copy(m_metrics_dynamic_tbl.begin(),
+            m_metrics_dynamic_tbl.end(),
+            std::inserter(GpuMetricsBase_t::m_base_metrics_dynamic_tbl,
+                          GpuMetricsBase_t::m_base_metrics_dynamic_tbl.end()));
 
   return status_code;
 }
@@ -2345,10 +2354,7 @@ rsmi_status_t GpuMetricsBase_v13_t::populate_metrics_dynamic_tbl() {
   ss << __PRETTY_FUNCTION__ << " | ======= start =======";
   LOG_TRACE(ss);
 
-  if (!m_metrics_dynamic_tbl.empty()) {
-    m_metrics_dynamic_tbl.clear();
-  }
-
+  auto m_metrics_dynamic_tbl = AMDGpuDynamicMetricsTbl_t{};
   //
   //  Note: Any metric treatment/changes (if any) should happen before they
   //        get written to internal/external tables.
@@ -2594,6 +2600,12 @@ rsmi_status_t GpuMetricsBase_v13_t::populate_metrics_dynamic_tbl() {
               << " |";
   LOG_TRACE(ss);
 
+  // Copy to base class
+  std::copy(m_metrics_dynamic_tbl.begin(),
+            m_metrics_dynamic_tbl.end(),
+            std::inserter(GpuMetricsBase_t::m_base_metrics_dynamic_tbl,
+                          GpuMetricsBase_t::m_base_metrics_dynamic_tbl.end()));
+
   return status_code;
 }
 
@@ -2728,10 +2740,7 @@ rsmi_status_t GpuMetricsBase_v12_t::populate_metrics_dynamic_tbl() {
   ss << __PRETTY_FUNCTION__ << " | ======= start =======";
   LOG_TRACE(ss);
 
-  if (!m_metrics_dynamic_tbl.empty()) {
-    m_metrics_dynamic_tbl.clear();
-  }
-
+  auto m_metrics_dynamic_tbl = AMDGpuDynamicMetricsTbl_t{};
   //
   //  Note: Any metric treatment/changes (if any) should happen before they
   //        get written to internal/external tables.
@@ -2955,6 +2964,12 @@ rsmi_status_t GpuMetricsBase_v12_t::populate_metrics_dynamic_tbl() {
               << " |";
   LOG_TRACE(ss);
 
+  // Copy to base class
+  std::copy(m_metrics_dynamic_tbl.begin(),
+            m_metrics_dynamic_tbl.end(),
+            std::inserter(GpuMetricsBase_t::m_base_metrics_dynamic_tbl,
+                          GpuMetricsBase_t::m_base_metrics_dynamic_tbl.end()));
+
   return status_code;
 }
 
@@ -3065,10 +3080,7 @@ rsmi_status_t GpuMetricsBase_v11_t::populate_metrics_dynamic_tbl() {
   ss << __PRETTY_FUNCTION__ << " | ======= start =======";
   LOG_TRACE(ss);
 
-  if (!m_metrics_dynamic_tbl.empty()) {
-    m_metrics_dynamic_tbl.clear();
-  }
-
+  auto m_metrics_dynamic_tbl = AMDGpuDynamicMetricsTbl_t{};
   //
   //  Note: Any metric treatment/changes (if any) should happen before they
   //        get written to internal/external tables.
@@ -3278,6 +3290,12 @@ rsmi_status_t GpuMetricsBase_v11_t::populate_metrics_dynamic_tbl() {
               << " | Returning = " << getRSMIStatusString(status_code)
               << " |";
   LOG_TRACE(ss);
+
+  // Copy to base class
+  std::copy(m_metrics_dynamic_tbl.begin(),
+            m_metrics_dynamic_tbl.end(),
+            std::inserter(GpuMetricsBase_t::m_base_metrics_dynamic_tbl,
+                          GpuMetricsBase_t::m_base_metrics_dynamic_tbl.end()));
 
   return status_code;
 }
@@ -4023,8 +4041,8 @@ rsmi_dev_gpu_metrics_info_get(uint32_t dv_ind, rsmi_gpu_metrics_t* smu) {
   CHK_SUPPORT_NAME_ONLY(smu)
 
   auto status_code(rsmi_status_t::RSMI_STATUS_SUCCESS);
-  std::ostringstream ostrstream;
-  std::ostringstream ss;
+  thread_local std::ostringstream ostrstream;
+  thread_local std::ostringstream ss;
 
   ss << __PRETTY_FUNCTION__ << "| ======= start =======";
   LOG_TRACE(ss);
@@ -4048,6 +4066,7 @@ rsmi_dev_gpu_metrics_info_get(uint32_t dv_ind, rsmi_gpu_metrics_t* smu) {
   auto ret = rsmi_dev_partition_id_get(dv_ind, &partition_id);
   dev->set_smi_partition_id(partition_id);
   dev->dev_log_gpu_metrics(ostrstream);
+
   const auto [error_code, external_metrics] = dev->dev_copy_internal_to_external_metrics();
   if (error_code != rsmi_status_t::RSMI_STATUS_SUCCESS) {
     ss << __PRETTY_FUNCTION__
