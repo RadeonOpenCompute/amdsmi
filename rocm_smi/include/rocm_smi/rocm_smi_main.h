@@ -55,8 +55,12 @@ class RocmSMI {
 
     std::vector<std::shared_ptr<amd::smi::Device>>&
                                                   devices() {return devices_;}
+    std::vector<std::shared_ptr<amd::smi::Device>> &nic_devices() { return nic_devices_; }
+    std::vector<std::shared_ptr<amd::smi::Device>> &switch_devices() { return switch_devices_; }
 
     uint32_t DiscoverAmdgpuDevices(void);
+    uint32_t DiscoverBRCMnicDevices(void);
+    uint32_t DiscoverBRCMswitchDevices(void);
     int DiscoverAMDPowerMonitors(bool force_update = false);
 
     // Will execute "func" for every Device object known about, or until func
@@ -101,14 +105,20 @@ class RocmSMI {
 
  private:
     std::vector<std::shared_ptr<Device>> devices_;
+    std::vector<std::shared_ptr<Device>> nic_devices_;
+    std::vector<std::shared_ptr<Device>> switch_devices_;
     std::map<uint64_t, std::shared_ptr<KFDNode>> kfd_node_map_;
     std::vector<std::shared_ptr<Monitor>> monitors_;
+    std::vector<std::shared_ptr<Monitor>> nic_monitors_;
+    std::vector<std::shared_ptr<Monitor>> switch_monitors_;
     std::vector<std::shared_ptr<PowerMon>> power_mons_;
     std::set<std::string> amd_monitor_types_;
     std::map<std::pair<uint32_t, uint32_t>, std::shared_ptr<IOLink>>
       io_link_map_;
     std::map<uint32_t, uint32_t> dev_ind_to_node_ind_map_;
     void AddToDeviceList(std::string dev_name, uint64_t bdfid = 0);
+    void AddToNICDeviceList(std::string dev_name, uint64_t bdfid = 0, uint32_t card_indx=0);
+    void AddToSWITCHDeviceList(std::string dev_name, uint64_t bdfid = 0);
     void GetEnvVariables(void);
     std::shared_ptr<Monitor> FindMonitor(std::string monitor_path);
 

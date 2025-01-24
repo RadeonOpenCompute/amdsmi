@@ -710,3 +710,33 @@ std::string smi_amdgpu_get_status_string(amdsmi_status_t ret, bool fullStatus = 
   return std::string(err_str);
 }
 
+uint32_t smi_brcm_get_value_u32(std::string filePath, std::string fileName) {
+
+  filePath += "/" + fileName;
+  std::ifstream file(filePath.c_str(), std::ifstream::in);
+  if (!file.is_open()) {
+    return 0xFFFF;
+  }
+  else {
+    std::string line;
+    getline(file, line);
+    return static_cast<uint32_t>(stoi(line));
+  }
+
+  return AMDSMI_STATUS_SUCCESS;
+}
+
+std::string smi_brcm_get_value_string(std::string filePath, std::string fileName) {
+  
+  std::string temp;
+  filePath += "/" + fileName;
+  std::ifstream file(filePath.c_str(), std::ifstream::in);
+  if (!file.is_open()) {
+    return "N/A";
+  }
+  else {
+    getline(file, temp);
+  }
+
+  return temp;
+}

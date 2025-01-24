@@ -54,7 +54,8 @@ amdsmi_status_t smi_amdgpu_get_market_name_from_dev_id(amd::smi::AMDSmiGPUDevice
 amdsmi_status_t smi_amdgpu_is_gpu_power_management_enabled(amd::smi::AMDSmiGPUDevice* device, bool *enabled);
 std::string smi_split_string(std::string str, char delim);
 std::string smi_amdgpu_get_status_string(amdsmi_status_t ret, bool fullStatus);
-
+uint32_t smi_brcm_get_value_u32(std::string filePath, std::string fileName);
+std::string smi_brcm_get_value_string(std::string filePath, std::string fileName);
 
 template<typename>
 constexpr bool is_dependent_false_v = false;

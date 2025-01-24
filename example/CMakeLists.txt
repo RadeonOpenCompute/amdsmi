@@ -28,6 +28,11 @@ add_executable(${SMI_NODRM_EXAMPLE_EXE} "amd_smi_nodrm_example.cc")
 target_link_libraries(${SMI_NODRM_EXAMPLE_EXE} ${AMD_SMI_TARGET})
 add_dependencies(${SMI_NODRM_EXAMPLE_EXE} ${AMD_SMI_TARGET})
 
+set(SMI_LIST_EXAMPLE_EXE "amd_smi_list")
+add_executable(${SMI_LIST_EXAMPLE_EXE} "amd_smi_list.cc")
+target_link_libraries(${SMI_LIST_EXAMPLE_EXE} ${AMD_SMI_TARGET})
+add_dependencies(${SMI_LIST_EXAMPLE_EXE} ${AMD_SMI_TARGET})
+
 if(ENABLE_ESMI_LIB)
 set(ESMI_SAMPLE_EXE "amd_smi_esmi_ex")
 add_executable(${ESMI_SAMPLE_EXE} "amdsmi_esmi_intg_example.cc")

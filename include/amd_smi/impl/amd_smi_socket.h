@@ -50,6 +50,12 @@ class AMDSmiSocket {
         case AMDSMI_PROCESSOR_TYPE_AMD_CPU_CORE:
             cpu_core_processors_.push_back(processor);
             break;
+        case AMDSMI_PROCESSOR_TYPE_BRCM_NIC:
+          nic_processors_.push_back(processor);
+          break;
+        case AMDSMI_PROCESSOR_TYPE_BRCM_SWITCH:
+          switch_processors_.push_back(processor);
+          break;
         default:
             break;
         }
@@ -63,6 +69,10 @@ class AMDSmiSocket {
           return cpu_processors_;
       case AMDSMI_PROCESSOR_TYPE_AMD_CPU_CORE:
           return cpu_core_processors_;
+      case AMDSMI_PROCESSOR_TYPE_BRCM_NIC:
+        return nic_processors_;
+      case AMDSMI_PROCESSOR_TYPE_BRCM_SWITCH:
+        return switch_processors_;
       default:
           return processors_;
       }
@@ -75,6 +85,8 @@ class AMDSmiSocket {
     std::vector<AMDSmiProcessor*> processors_;
     std::vector<AMDSmiProcessor*> cpu_processors_;
     std::vector<AMDSmiProcessor*> cpu_core_processors_;
+    std::vector<AMDSmiProcessor*> nic_processors_;
+    std::vector<AMDSmiProcessor*> switch_processors_;
 };
 
 }  // namespace smi

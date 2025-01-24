@@ -24,6 +24,8 @@
 #include <iomanip>
 #include "amd_smi/impl/amd_smi_system.h"
 #include "amd_smi/impl/amd_smi_gpu_device.h"
+#include "amd_smi/impl/amd_smi_nic_device.h"
+#include "amd_smi/impl/amd_smi_switch_device.h"
 #include "amd_smi/impl/amd_smi_common.h"
 #include "rocm_smi/rocm_smi.h"
 #include "rocm_smi/rocm_smi_main.h"
@@ -100,6 +102,8 @@ amdsmi_status_t AMDSmiSystem::init(uint64_t flags) {
     // populate sockets and processors
     if (flags & AMDSMI_INIT_AMD_GPUS) {
         amd_smi_status = populate_amd_gpu_devices();
+        amd_smi_status = populate_brcm_nic_devices();
+        amd_smi_status = populate_brcm_switch_devices();
         if (amd_smi_status != AMDSMI_STATUS_SUCCESS)
             return amd_smi_status;
     }
@@ -209,6 +213,122 @@ amdsmi_status_t AMDSmiSystem::populate_amd_gpu_devices() {
     return AMDSMI_STATUS_SUCCESS;
 }
 
+amdsmi_status_t AMDSmiSystem::populate_brcm_nic_devices() {
+    uint32_t device_count = 0;
+    amdsmi_status_t amd_smi_status = no_drm_nic.init();
+  
+    rsmi_status_t ret = rsmi_num_nic_monitor_devices(&device_count);
+    if (ret != RSMI_STATUS_SUCCESS) {
+      return amd::smi::rsmi_to_amdsmi_status(ret);
+    }
+
+    for (uint32_t i = 0; i < device_count; i++) {
+      // NIC device uses the bdf as the socket id
+      std::string socket_id;
+      uint64_t bdfid = 0;
+      rsmi_status_t ret = rsmi_nic_dev_pci_id_get(i, &bdfid);
+      if (ret != RSMI_STATUS_SUCCESS) {
+        // return amd::smi::rsmi_to_amdsmi_status(ret);
+        // device might be removed; continue with next device;
+        continue;
+      }
+
+      uint64_t domain = (bdfid >> 32) & 0xffffffff;
+      uint64_t bus = (bdfid >> 8) & 0xff;
+      uint64_t device_id = (bdfid >> 3) & 0x1f;
+      uint64_t function = bdfid & 0x7;
+
+      // The BD part of the BDF is used as the socket id as it
+      // represents a physical device.
+      std::stringstream ss;
+      ss << std::setfill('0') << std::uppercase << std::hex << std::setw(4) << domain << ":"
+          << std::setw(2) << bus << ":" << std::setw(2) << device_id;
+      socket_id = ss.str();
+
+      // Multiple devices may share the same socket
+      AMDSmiSocket* socket = nullptr;
+      for (unsigned int j = 0; j < sockets_.size(); j++) {
+        if (sockets_[j]->get_socket_id() == socket_id) {
+          socket = sockets_[j];
+          break;
+        }
+      }
+      if (socket == nullptr) {
+        socket = new AMDSmiSocket(socket_id);
+        sockets_.push_back(socket);
+      }
+
+      amdsmi_bdf_t bdf = {};
+      bdf.function_number = bdfid & 0x7;
+      bdf.device_number = (bdfid >> 3) & 0x1f;
+      bdf.bus_number = (bdfid >> 8) & 0xff;
+      bdf.domain_number = (bdfid >> 32) & 0xffffffff;
+
+      AMDSmiProcessor* device = new AMDSmiNICDevice(i, bdf, no_drm_nic);
+      socket->add_processor(device);
+      nic_processors_.insert(device);
+    }
+
+  return AMDSMI_STATUS_SUCCESS;
+}
+
+amdsmi_status_t AMDSmiSystem::populate_brcm_switch_devices() {
+  uint32_t device_count = 0;
+  amdsmi_status_t amd_smi_status = no_drm_switch.init();
+  rsmi_status_t ret = rsmi_num_switch_monitor_devices(&device_count);
+  if (ret != RSMI_STATUS_SUCCESS) {
+    return amd::smi::rsmi_to_amdsmi_status(ret);
+  }
+
+  for (uint32_t i = 0; i < device_count; i++) {
+    // NIC device uses the bdf as the socket id
+    std::string socket_id;
+    uint64_t bdfid = 0;
+    rsmi_status_t ret = rsmi_switch_dev_pci_id_get(i, &bdfid);
+    if (ret != RSMI_STATUS_SUCCESS) {
+      // return amd::smi::rsmi_to_amdsmi_status(ret);
+      // device might be removed; continue with next device;
+      continue;
+    }
+
+    uint64_t domain = (bdfid >> 32) & 0xffffffff;
+    uint64_t bus = (bdfid >> 8) & 0xff;
+    uint64_t device_id = (bdfid >> 3) & 0x1f;
+    uint64_t function = bdfid & 0x7;
+
+    // The BD part of the BDF is used as the socket id as it
+    // represents a physical device.
+    std::stringstream ss;
+    ss << std::setfill('0') << std::uppercase << std::hex << std::setw(4) << domain << ":"
+       << std::setw(2) << bus << ":" << std::setw(2) << device_id;
+    socket_id = ss.str();
+
+    // Multiple devices may share the same socket
+    AMDSmiSocket* socket = nullptr;
+    for (unsigned int j = 0; j < sockets_.size(); j++) {
+      if (sockets_[j]->get_socket_id() == socket_id) {
+        socket = sockets_[j];
+        break;
+      }
+    }
+    if (socket == nullptr) {
+      socket = new AMDSmiSocket(socket_id);
+      sockets_.push_back(socket);
+    }
+
+    amdsmi_bdf_t bdf = {};
+    bdf.function_number = bdfid & 0x7;
+    bdf.device_number = (bdfid >> 3) & 0x1f;
+    bdf.bus_number = (bdfid >> 8) & 0xff;
+    bdf.domain_number = (bdfid >> 32) & 0xffffffff;
+
+    AMDSmiProcessor* device = new AMDSmiSWITCHDevice(i, bdf, no_drm_switch);
+    socket->add_processor(device);
+    switch_processors_.insert(device);
+  }
+
+  return AMDSMI_STATUS_SUCCESS;
+}
 amdsmi_status_t AMDSmiSystem::get_gpu_socket_id(uint32_t index,
             std::string& socket_id) {
     uint64_t bdfid = 0;
@@ -306,6 +426,14 @@ amdsmi_status_t AMDSmiSystem::handle_to_processor(
     // double check handlers is here
     if (std::find(processors_.begin(), processors_.end(), *processor)
             != processors_.end()) {
+        return AMDSMI_STATUS_SUCCESS;
+    }
+    if (std::find(nic_processors_.begin(), nic_processors_.end(), *processor)
+            != nic_processors_.end()) {
+        return AMDSMI_STATUS_SUCCESS;
+    }
+    if (std::find(switch_processors_.begin(), switch_processors_.end(), *processor) !=
+        switch_processors_.end()) {
         return AMDSMI_STATUS_SUCCESS;
     }
     return AMDSMI_STATUS_NOT_FOUND;
