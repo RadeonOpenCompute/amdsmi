@@ -57,6 +57,7 @@ class AMDSMICommands():
         if self.helpers.is_amdgpu_initialized():
             try:
                 self.device_handles = amdsmi_interface.amdsmi_get_processor_handles()
+                self.device_handles_devices=amdsmi_interface.amdsmi_get_processor_handles_devices()
             except amdsmi_exception.AmdSmiLibraryException as e:
                 if e.err_code in (amdsmi_interface.amdsmi_wrapper.AMDSMI_STATUS_NOT_INIT,
                                 amdsmi_interface.amdsmi_wrapper.AMDSMI_STATUS_DRIVER_NOT_LOADED):
@@ -68,6 +69,17 @@ class AMDSMICommands():
                 # No GPU's found post amdgpu driver initialization
                 logging.error('Unable to detect any GPU devices, check amdgpu version and module status (sudo modprobe amdgpu)')
                 exit_flag = True
+            try:
+     
+                self.device_handles_nics= amdsmi_interface.get_nic_handles()
+                self.device_handles_gpus= amdsmi_interface.get_gpu_handles()
+                self.device_handles_switchs= amdsmi_interface.get_switch_handles()
+            except amdsmi_exception.AmdSmiLibraryException as e:
+                if e.err_code in (amdsmi_interface.amdsmi_wrapper.AMDSMI_STATUS_NOT_INIT,
+                                amdsmi_interface.amdsmi_wrapper.AMDSMI_STATUS_DRIVER_NOT_LOADED):
+                    logging.error('Unable to get devices, driver not initialized (BRCMNIC not found in modules)')
+                else:
+                    raise e
 
         if self.helpers.is_amd_hsmp_initialized():
             try:
@@ -167,8 +179,10 @@ class AMDSMICommands():
         elif self.logger.is_json_format() or self.logger.is_csv_format():
             self.logger.print_output()
 
-
-    def list(self, args, multiple_devices=False, gpu=None):
+   
+    def list(self, args, multiple_devices=False, gpu=None,nic=None,switch=None):
+       
+      
         """List information for target gpu
 
         Args:
@@ -184,60 +198,143 @@ class AMDSMICommands():
         """
         # Set args.* to passed in arguments
         if gpu:
-            args.gpu = gpu
-
+           args.gpu = gpu
+        if nic:
+           args.nic = nic
+        if switch:
+           args.switch = switch           
+      
         # Handle No GPU passed
-        if args.gpu == None:
-            args.gpu = self.device_handles
-
+        if args.gpu == None and args.nic==None and args.switch==None:
+           args.gpu = self.device_handles_devices
+        
+      
         # Handle multiple GPUs
-        handled_multiple_gpus, device_handle = self.helpers.handle_gpus(args, self.logger, self.list)
-        if handled_multiple_gpus:
-            return # This function is recursive
+        if args.gpu != None :
+            handled_multiple_gpus, device_handle = self.helpers.handle_gpus(args, self.logger, self.list)
+            if handled_multiple_gpus:
+                    return # This function is recursive
+        # Handle multiple NICs
+        if args.nic != None :
+            handled_multiple_gpus, device_handle = self.helpers.handle_nics(args, self.logger, self.list)
+            if handled_multiple_gpus:
+                return # This function is recursive    
+            
+         # Handle multiple Switch
+        if args.switch != None :
+            handled_multiple_gpus, device_handle = self.helpers.handle_switchs(args, self.logger, self.list)
+            if handled_multiple_gpus:
+                return # This function is recursive        
+  
+        device_type=amdsmi_interface.amdsmi_get_processor_type(device_handle)
+    
+     
+        if device_type["processor_type"]=='AMDSMI_PROCESSOR_TYPE_AMD_GPU':
+           args.gpu = device_handle
 
-        args.gpu = device_handle
+          # Get gpu_id for logging
+           gpu_id = self.helpers.get_gpu_id_from_device_handle(args.gpu)
 
-        # Get gpu_id for logging
-        gpu_id = self.helpers.get_gpu_id_from_device_handle(args.gpu)
-
-        try:
-            bdf = amdsmi_interface.amdsmi_get_gpu_device_bdf(args.gpu)
-        except amdsmi_exception.AmdSmiLibraryException as e:
+           try:
+             bdf = amdsmi_interface.amdsmi_get_gpu_device_bdf(args.gpu)
+           except amdsmi_exception.AmdSmiLibraryException as e:
             bdf = e.get_error_info()
 
-        try:
-            uuid = amdsmi_interface.amdsmi_get_gpu_device_uuid(args.gpu)
-        except amdsmi_exception.AmdSmiLibraryException as e:
-            uuid = e.get_error_info()
+           try:
+             uuid = amdsmi_interface.amdsmi_get_gpu_device_uuid(args.gpu)
+           except amdsmi_exception.AmdSmiLibraryException as e:
+              uuid = e.get_error_info()
 
-        try:
-            kfd_info = amdsmi_interface.amdsmi_get_gpu_kfd_info(args.gpu)
-            kfd_id = kfd_info['kfd_id']
-            node_id = kfd_info['node_id']
-            partition_id = kfd_info['current_partition_id']
-        except amdsmi_exception.AmdSmiLibraryException as e:
-            kfd_id = node_id = "N/A"
-            logging.debug("Failed to get kfd info for gpu %s | %s", gpu_id, e.get_error_info())
+           try:
+             kfd_info = amdsmi_interface.amdsmi_get_gpu_kfd_info(args.gpu)
+             kfd_id = kfd_info['kfd_id']
+             node_id = kfd_info['node_id']
+             partition_id = kfd_info['current_partition_id']
+           except amdsmi_exception.AmdSmiLibraryException as e:
+             kfd_id = node_id = "N/A"
+             logging.debug("Failed to get kfd info for gpu %s | %s", gpu_id, e.get_error_info())
 
-        # CSV format is intentionally aligned with Host
-        if self.logger.is_csv_format():
-            self.logger.store_output(args.gpu, 'gpu_bdf', bdf)
-            self.logger.store_output(args.gpu, 'gpu_uuid', uuid)
-            self.logger.store_output(args.gpu, 'kfd_id', kfd_id)
-            self.logger.store_output(args.gpu, 'node_id', node_id)
-            self.logger.store_output(args.gpu, 'partition_id', partition_id)
-        else:
-            self.logger.store_output(args.gpu, 'bdf', bdf)
-            self.logger.store_output(args.gpu, 'uuid', uuid)
-            self.logger.store_output(args.gpu, 'kfd_id', kfd_id)
-            self.logger.store_output(args.gpu, 'node_id', node_id)
-            self.logger.store_output(args.gpu, 'partition_id', partition_id)
+           # CSV format is intentionally aligned with Host
+           if self.logger.is_csv_format():
+              self.logger.store_output(args.gpu, 'gpu_bdf', bdf)
+              self.logger.store_output(args.gpu, 'gpu_uuid', uuid)
+              self.logger.store_output(args.gpu, 'kfd_id', kfd_id)
+              self.logger.store_output(args.gpu, 'node_id', node_id)
+              self.logger.store_output(args.gpu, 'partition_id', partition_id)
+           else:
+              self.logger.store_output(args.gpu, 'bdf', bdf)
+              self.logger.store_output(args.gpu, 'uuid', uuid)
+              self.logger.store_output(args.gpu, 'kfd_id', kfd_id)
+              self.logger.store_output(args.gpu, 'node_id', node_id)
+              self.logger.store_output(args.gpu, 'partition_id', partition_id)
 
-        if multiple_devices:
-            self.logger.store_multiple_device_output()
-            return # Skip printing when there are multiple devices
+           if multiple_devices:
+              self.logger.store_multiple_device_output()
+              return # Skip printing when there are multiple devices
 
-        self.logger.print_output()
+           self.logger.print_output()
+           self.logger.output.clear()
+
+
+        elif device_type["processor_type"]=="AMDSMI_PROCESSOR_TYPE_BRCM_NIC":
+
+           args.nic = device_handle
+    
+           try:
+                    nic_bdf = amdsmi_interface.amdsmi_get_nic_device_bdf(args.nic)
+           except amdsmi_exception.AmdSmiLibraryException as e:
+                    nic_bdf = e.get_error_info()
+        
+           try:
+                    nic_uuid = amdsmi_interface.amdsmi_get_nic_device_uuid(args.nic)
+           except amdsmi_exception.AmdSmiLibraryException as e:
+                    nic_uuid = e.get_error_info()
+        
+                # CSV format is intentionally aligned with Host
+           if self.logger.is_csv_format():
+                    self.logger.store_nic_output(args.nic, 'nic_bdf', nic_bdf)
+                    self.logger.store_nic_output(args.nic, 'nic_uuid', nic_uuid)
+           else:
+                    self.logger.store_nic_output(args.nic, 'bdf', nic_bdf)
+                    self.logger.store_nic_output(args.nic, 'uuid', nic_uuid)
+
+           if multiple_devices:
+                    self.logger.store_multiple_device_output()
+                    return # Skip printing when there are multiple devices
+
+           self.logger.print_output()
+           self.logger.output.clear()
+              
+                
+        elif device_type["processor_type"]=="AMDSMI_PROCESSOR_TYPE_BRCM_SWITCH":
+                       
+            args.switch = device_handle
+    
+            try:
+                    switch_bdf = amdsmi_interface.amdsmi_get_switch_device_bdf(args.switch)
+            except amdsmi_exception.AmdSmiLibraryException as e:
+                    switch_bdf = e.get_error_info()
+            
+            try:
+                    switch_uuid = amdsmi_interface.amdsmi_get_switch_device_uuid(args.switch)
+            except amdsmi_exception.AmdSmiLibraryException as e:
+                    switch_uuid = e.get_error_info()
+            
+                # CSV format is intentionally aligned with Host
+            if self.logger.is_csv_format():
+                    self.logger.store_switch_output(args.switch, 'switch_bdf', switch_bdf)
+                    self.logger.store_switch_output(args.switch, 'switch_uuid', switch_uuid)
+                    
+            else:
+                    self.logger.store_switch_output(args.switch, 'bdf', switch_bdf)
+                    self.logger.store_switch_output(args.switch, 'uuid', switch_uuid)
+
+            if multiple_devices:
+                    self.logger.store_multiple_device_output()
+                    return # Skip printing when there are multiple devices
+
+            self.logger.print_output()
+            self.logger.output.clear()
 
 
     def static_cpu(self, args, multiple_devices=False, cpu=None, interface_ver=None):
