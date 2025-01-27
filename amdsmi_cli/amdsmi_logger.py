@@ -139,6 +139,27 @@ class AMDSMILogger():
                 table_values += string_value.rjust(12)
             elif key in ['pcie_replay']:
                 table_values += string_value.rjust(13)
+            #BRCM Device Metrics
+            #NIC
+            elif key == "NIC_TEMP_CURRENT":
+                table_values += string_value.rjust(21)
+            elif key == "NIC_TEMP_CRIT_ALARM":
+                table_values += string_value.rjust(22)
+            elif key == "NIC_TEMP_EMERGENCY_ALARM":
+                table_values += string_value.rjust(26)
+            elif key == "NIC_TEMP_SHUTDOWN_ALARM":
+                table_values += string_value.rjust(25)
+            elif key == "NIC_TEMP_MAX_ALARM":
+                table_values += string_value.rjust(20)
+            #SWITCH
+            elif key == "CURRENT_LINK_SPEED":
+                table_values += string_value.rjust(20)
+            elif key == "MAX_LINK_SPEED":
+                table_values += string_value.rjust(16)
+            elif key == "CURRENT_LINK_WIDTH":
+                table_values += string_value.rjust(20)
+            elif key == "MAX_LINK_WIDTH":
+                table_values += string_value.rjust(16)
             # Only for handling topology tables
             elif 'gpu_' in key:
                 table_values += string_value.ljust(13)
