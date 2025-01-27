@@ -2546,6 +2546,9 @@ amdsmi_get_gpu_driver_info.argtypes = [amdsmi_processor_handle, ctypes.POINTER(s
 amdsmi_get_nic_temp_info = _libraries['libamd_smi.so'].amdsmi_get_nic_temp_info
 amdsmi_get_nic_temp_info.restype = amdsmi_status_t
 amdsmi_get_nic_temp_info.argtypes = [amdsmi_processor_handle, ctypes.POINTER(struct_amdsmi_nic_temperature_metric_t)]
+amdsmi_get_switch_link_info = _libraries['libamd_smi.so'].amdsmi_get_switch_link_info
+amdsmi_get_switch_link_info.restype = amdsmi_status_t
+amdsmi_get_switch_link_info.argtypes = [amdsmi_processor_handle, ctypes.POINTER(struct_amdsmi_brcm_link_metric_t)]
 amdsmi_get_gpu_asic_info = _libraries['libamd_smi.so'].amdsmi_get_gpu_asic_info
 amdsmi_get_gpu_asic_info.restype = amdsmi_status_t
 amdsmi_get_gpu_asic_info.argtypes = [amdsmi_processor_handle, ctypes.POINTER(struct_amdsmi_asic_info_t)]
@@ -3052,11 +3055,12 @@ __all__ = \
     'amdsmi_get_processor_info', 'amdsmi_get_processor_type',
     'amdsmi_get_soc_pstate', 'amdsmi_get_socket_handles',
     'amdsmi_get_socket_info', 'amdsmi_get_switch_device_bdf',
-    'amdsmi_get_switch_device_uuid', 'amdsmi_get_temp_metric',
-    'amdsmi_get_threads_per_core', 'amdsmi_get_utilization_count',
-    'amdsmi_get_violation_status', 'amdsmi_get_xgmi_info',
-    'amdsmi_get_xgmi_plpd', 'amdsmi_gpu_block_t',
-    'amdsmi_gpu_cache_info_t', 'amdsmi_gpu_control_counter',
+    'amdsmi_get_switch_device_uuid', 'amdsmi_get_switch_link_info',
+    'amdsmi_get_temp_metric', 'amdsmi_get_threads_per_core',
+    'amdsmi_get_utilization_count', 'amdsmi_get_violation_status',
+    'amdsmi_get_xgmi_info', 'amdsmi_get_xgmi_plpd',
+    'amdsmi_gpu_block_t', 'amdsmi_gpu_cache_info_t',
+    'amdsmi_gpu_control_counter',
     'amdsmi_gpu_counter_group_supported', 'amdsmi_gpu_create_counter',
     'amdsmi_gpu_destroy_counter', 'amdsmi_gpu_metrics_t',
     'amdsmi_gpu_read_counter', 'amdsmi_gpu_validate_ras_eeprom',
