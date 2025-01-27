@@ -4936,6 +4936,8 @@ amdsmi_status_t
 amdsmi_get_gpu_driver_info(amdsmi_processor_handle processor_handle, amdsmi_driver_info_t *info);
 amdsmi_status_t 
 amdsmi_get_nic_temp_info(amdsmi_processor_handle processor_handle, amdsmi_nic_temperature_metric_t *info);
+amdsmi_status_t 
+amdsmi_get_switch_link_info(amdsmi_processor_handle processor_handle, amdsmi_brcm_link_metric_t *info);
 
 /** @} End swversion */
 
