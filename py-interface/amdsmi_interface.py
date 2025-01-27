@@ -1834,6 +1834,66 @@ def amdsmi_get_switch_device_bdf(processor_handle: amdsmi_wrapper.amdsmi_process
 
     return _format_bdf(bdf_info)
 
+def amdsmi_get_nic_temp_info(
+    processor_handle: amdsmi_wrapper.amdsmi_processor_handle,
+) -> Dict[str, ctypes.c_uint32]:
+    if not isinstance(processor_handle, amdsmi_wrapper.amdsmi_processor_handle):
+        raise AmdSmiParameterException(
+            processor_handle, amdsmi_wrapper.amdsmi_processor_handle
+        )
+
+    power_measure = amdsmi_wrapper.struct_amdsmi_nic_temperature_metric_t()
+    _check_res(
+        amdsmi_wrapper.amdsmi_get_nic_temp_info(
+            processor_handle, ctypes.byref(power_measure)
+        )
+    )
+    
+    temp_info_dict = {
+        "NIC_TEMP_CURRENT": math.trunc(power_measure.nic_temp_input / 1000),
+        "NIC_TEMP_CRIT_ALARM": power_measure.nic_temp_crit_alarm,
+        "NIC_TEMP_EMERGENCY_ALARM": power_measure.nic_temp_emergency_alarm,
+        "NIC_TEMP_SHUTDOWN_ALARM": power_measure.nic_temp_shutdown_alarm,
+        "NIC_TEMP_MAX_ALARM": power_measure.nic_temp_max_alarm,
+    }
+    for key, value in temp_info_dict.items():
+        if value == 0xFFFF:
+            temp_info_dict[key] = "N/A"
+
+    return temp_info_dict
+    for key, value in power_info_dict.items():
+        if value == 0xFFFF:
+            power_info_dict[key] = "N/A"
+
+    return power_info_dict
+def amdsmi_get_switch_link_info(
+    processor_handle: amdsmi_wrapper.amdsmi_processor_handle,
+) -> Dict[str, ctypes.c_uint32]:
+    if not isinstance(processor_handle, amdsmi_wrapper.amdsmi_processor_handle):
+        raise AmdSmiParameterException(
+            processor_handle, amdsmi_wrapper.amdsmi_processor_handle
+        )
+
+    power_measure = amdsmi_wrapper.struct_amdsmi_brcm_link_metric_t()
+    _check_res(
+        amdsmi_wrapper.amdsmi_get_switch_link_info(
+            processor_handle, ctypes.byref(power_measure)
+        )
+    )
+    
+    link_info_dict = {
+        "CURRENT_LINK_SPEED": power_measure.current_link_speed,
+        "MAX_LINK_SPEED": power_measure.max_link_speed,
+        "CURRENT_LINK_WIDTH": power_measure.current_link_width,
+        "MAX_LINK_WIDTH": power_measure.max_link_width,
+        
+    }
+    for key, value in link_info_dict.items():
+        if value == 0xFFFF:
+            link_info_dict[key] = "N/A"
+
+    return link_info_dict
+
 
 def amdsmi_get_gpu_asic_info(
     processor_handle: amdsmi_wrapper.amdsmi_processor_handle,
