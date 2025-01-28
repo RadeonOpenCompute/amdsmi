@@ -13,7 +13,9 @@ Full documentation for amd_smi_lib is available at [https://rocm.docs.amd.com/pr
 - **Changed `amd-smi monitor`: No longer display `ENC_CLOCK`/`DEC_CLOCK` but `VCLOCK` and `DCLOCK`**.  
   Due to fix mentioned in `Resolved Issues`, this change was needed.  
   Reason: Navi products use vclk and dclk for both encode and decode. On MI products, only decode is supported.  
+
   Before:
+
   ```shell
   $ amd-smi monitor -n -d
   GPU  ENC_UTIL  ENC_CLOCK  DEC_UTIL  DEC_CLOCK
@@ -26,7 +28,9 @@ Full documentation for amd_smi_lib is available at [https://rocm.docs.amd.com/pr
     6     0.0 %     29 MHz       N/A     22 MHz
     7     0.0 %     29 MHz       N/A     22 MHz
   ```
+
   After:
+
   ```shell
   $ amd-smi monitor -n -d
   GPU  ENC_UTIL  DEC_UTIL  VCLOCK  DCLOCK
@@ -52,6 +56,7 @@ Full documentation for amd_smi_lib is available at [https://rocm.docs.amd.com/pr
   Navi products cannot support displaying ENC_UTIL % at this time.  
 
   Before:
+
   ```shell
   $ amd-smi monitor -n -d
   GPU  ENC_UTIL  ENC_CLOCK  DEC_UTIL  DEC_CLOCK
@@ -64,7 +69,9 @@ Full documentation for amd_smi_lib is available at [https://rocm.docs.amd.com/pr
     6     0.0 %     29 MHz       N/A     22 MHz
     7     0.0 %     29 MHz       N/A     22 MHz
   ```
+
   After:
+
   ```shell
   $ amd-smi monitor -n -d
   GPU  ENC_UTIL  DEC_UTIL  VCLOCK  DCLOCK

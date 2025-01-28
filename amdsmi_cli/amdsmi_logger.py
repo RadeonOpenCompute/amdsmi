@@ -177,7 +177,7 @@ class AMDSMILogger():
             elif key == "resources_shared":
                 table_values += string_value.ljust(18)
             elif key == "RW":
-                table_values += string_value.ljust(52)
+                table_values += string_value.ljust(53)
             elif key == "process_list":
                 #Add an additional padding between the first instance of GPU and NAME
                 table_values += '  '
