@@ -62,7 +62,6 @@ AMDSMI_NUM_VOLTAGE_CURVE_POINTS = 3
 AMDSMI_MAX_MM_IP_COUNT = 8
 AMDSMI_MAX_DATE_LENGTH = 32
 AMDSMI_MAX_STRING_LENGTH = 64
-AMDSMI_NORMAL_STRING_LENGTH = 32
 AMDSMI_MAX_DEVICES = 32
 AMDSMI_MAX_NAME = 32
 AMDSMI_MAX_DRIVER_VERSION_LENGTH = 80
@@ -438,6 +437,14 @@ class AmdSmiRegType(IntEnum):
     PCIE = amdsmi_wrapper.AMDSMI_REG_PCIE
     USR = amdsmi_wrapper.AMDSMI_REG_USR
     USR1 = amdsmi_wrapper.AMDSMI_REG_USR1
+
+
+class AmdSmiVirtualizationMode(IntEnum):
+    UNKNOWN = amdsmi_wrapper.AMDSMI_VIRTUALIZATION_MODE_UNKNOWN
+    BAREMETAL = amdsmi_wrapper.AMDSMI_VIRTUALIZATION_MODE_BAREMETAL
+    HOST = amdsmi_wrapper.AMDSMI_VIRTUALIZATION_MODE_HOST
+    GUEST = amdsmi_wrapper.AMDSMI_VIRTUALIZATION_MODE_GUEST
+    PASSTHROUGH = amdsmi_wrapper.AMDSMI_VIRTUALIZATION_MODE_PASSTHROUGH
 
 
 class AmdSmiEventReader:
@@ -970,6 +977,21 @@ def amdsmi_get_cpu_smu_fw_version(processor_handle: amdsmi_wrapper.amdsmi_proces
         "smu_fw_major_ver_num": smu_fw.major
     }
 
+def amdsmi_get_cpu_hsmp_driver_version(processor_handle: amdsmi_wrapper.amdsmi_processor_handle):
+    if not isinstance(processor_handle, amdsmi_wrapper.amdsmi_processor_handle):
+        raise AmdSmiParameterException(
+            processor_handle, amdsmi_wrapper.amdsmi_processor_handle
+        )
+
+    hsmp_driver_version = amdsmi_wrapper.amdsmi_hsmp_driver_version_t()
+
+    _check_res(amdsmi_wrapper.amdsmi_get_cpu_hsmp_driver_version(processor_handle, hsmp_driver_version))
+
+    return {
+        "hsmp_driver_major_ver_num": hsmp_driver_version.major,
+        "hsmp_driver_minor_ver_num": hsmp_driver_version.minor,
+    }
+
 def amdsmi_get_cpu_core_energy(
     processor_handle: amdsmi_wrapper.amdsmi_processor_handle
 ) -> int:
@@ -1003,6 +1025,16 @@ def amdsmi_get_cpu_socket_energy(
     )
 
     return f"{float(penergy.value * pow(10, -6))} J"
+
+def amdsmi_get_threads_per_core():
+    threads_per_core = ctypes.c_uint32()
+    _check_res(
+        amdsmi_wrapper.amdsmi_get_threads_per_core(
+            ctypes.byref(threads_per_core)
+        )
+    )
+
+    return threads_per_core.value
 
 def amdsmi_get_cpu_prochot_status(
     processor_handle: amdsmi_wrapper.amdsmi_processor_handle
@@ -2550,6 +2582,7 @@ def amdsmi_get_gpu_driver_info(
 
 def amdsmi_get_power_info(
     processor_handle: amdsmi_wrapper.amdsmi_processor_handle,
+    sensor_ind: int = 0
 ) -> Dict[str, ctypes.c_uint32]:
     if not isinstance(processor_handle, amdsmi_wrapper.amdsmi_processor_handle):
         raise AmdSmiParameterException(
@@ -2559,7 +2592,7 @@ def amdsmi_get_power_info(
     power_measure = amdsmi_wrapper.amdsmi_power_info_t()
     _check_res(
         amdsmi_wrapper.amdsmi_get_power_info(
-            processor_handle, ctypes.byref(power_measure)
+            processor_handle, sensor_ind, ctypes.byref(power_measure)
         )
     )
 
@@ -3085,13 +3118,13 @@ def amdsmi_get_gpu_memory_partition_config(processor_handle: amdsmi_wrapper.amds
         )
     )
     mem_caps_list = []
-    if config.partition_caps.amdsmi_nps_flags_t.nps1_cap == 1:
+    if config.partition_caps.nps_flags.nps1_cap == 1:
         mem_caps_list.append("NPS1")
-    if config.partition_caps.amdsmi_nps_flags_t.nps2_cap == 1:
+    if config.partition_caps.nps_flags.nps2_cap == 1:
         mem_caps_list.append("NPS2")
-    if config.partition_caps.amdsmi_nps_flags_t.nps4_cap == 1:
+    if config.partition_caps.nps_flags.nps4_cap == 1:
         mem_caps_list.append("NPS4")
-    if config.partition_caps.amdsmi_nps_flags_t.nps8_cap == 1:
+    if config.partition_caps.nps_flags.nps8_cap == 1:
         mem_caps_list.append("NPS8")
 
     return_dict = {
@@ -3169,13 +3202,13 @@ def amdsmi_get_gpu_accelerator_partition_profile(
         partition_ids = "N/A"
 
     mem_caps_list = []
-    if profile.memory_caps.amdsmi_nps_flags_t.nps1_cap == 1:
+    if profile.memory_caps.nps_flags.nps1_cap == 1:
         mem_caps_list.append("NPS1")
-    if profile.memory_caps.amdsmi_nps_flags_t.nps2_cap == 1:
+    if profile.memory_caps.nps_flags.nps2_cap == 1:
         mem_caps_list.append("NPS2")
-    if profile.memory_caps.amdsmi_nps_flags_t.nps4_cap == 1:
+    if profile.memory_caps.nps_flags.nps4_cap == 1:
         mem_caps_list.append("NPS4")
-    if profile.memory_caps.amdsmi_nps_flags_t.nps8_cap == 1:
+    if profile.memory_caps.nps_flags.nps8_cap == 1:
         mem_caps_list.append("NPS8")
 
     partition_profile_dict = {
@@ -3223,13 +3256,13 @@ def amdsmi_get_gpu_accelerator_partition_profile_config(processor_handle: amdsmi
 
         
         mem_caps_list = []
-        if profile.memory_caps.amdsmi_nps_flags_t.nps1_cap == 1:
+        if profile.memory_caps.nps_flags.nps1_cap == 1:
             mem_caps_list.append("NPS1")
-        if profile.memory_caps.amdsmi_nps_flags_t.nps2_cap == 1:
+        if profile.memory_caps.nps_flags.nps2_cap == 1:
             mem_caps_list.append("NPS2")
-        if profile.memory_caps.amdsmi_nps_flags_t.nps4_cap == 1:
+        if profile.memory_caps.nps_flags.nps4_cap == 1:
             mem_caps_list.append("NPS4")
-        if profile.memory_caps.amdsmi_nps_flags_t.nps8_cap == 1:
+        if profile.memory_caps.nps_flags.nps8_cap == 1:
             mem_caps_list.append("NPS8")
 
         for r in range(config.num_resource_profiles):
@@ -4708,4 +4741,23 @@ def amdsmi_get_link_topology_nearest(
 
     return {
         'processor_list': device_list
+    }
+
+def amdsmi_get_gpu_virtualization_mode_info(
+    processor_handle: amdsmi_wrapper.amdsmi_processor_handle
+    ) -> Dict[str, AmdSmiVirtualizationMode]:
+
+    # make info struct here
+    mode = amdsmi_wrapper.amdsmi_virtualization_mode_t()
+
+    # call lib function here
+    _check_res(
+        amdsmi_wrapper.amdsmi_get_gpu_virtualization_mode(
+            processor_handle,
+            ctypes.byref(mode)
+        )
+    )
+
+    return {
+        "mode": AmdSmiVirtualizationMode(mode.value)
     }

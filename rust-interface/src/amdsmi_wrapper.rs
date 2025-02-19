@@ -104,7 +104,6 @@ where
 pub const AMDSMI_MAX_MM_IP_COUNT: u32 = 8;
 pub const AMDSMI_MAX_DATE_LENGTH: u32 = 32;
 pub const AMDSMI_MAX_STRING_LENGTH: u32 = 256;
-pub const AMDSMI_NORMAL_STRING_LENGTH: u32 = 256;
 pub const AMDSMI_256_LENGTH: u32 = 256;
 pub const AMDSMI_MAX_DEVICES: u32 = 32;
 pub const AMDSMI_MAX_NAME: u32 = 32;
@@ -973,7 +972,7 @@ const _: () = {
 #[repr(C)]
 #[derive(Copy, Clone)]
 pub union AmdsmiNpsCapsT {
-    pub amdsmi_nps_flags_t: AmdsmiNpsCapsTNpsFlags,
+    pub nps_flags: AmdsmiNpsCapsTNpsFlags,
     pub nps_cap_mask: u32,
 }
 #[repr(C)]
@@ -1080,8 +1079,8 @@ impl AmdsmiNpsCapsTNpsFlags {
 const _: () = {
     ["Size of AmdsmiNpsCapsT"][::std::mem::size_of::<AmdsmiNpsCapsT>() - 4usize];
     ["Alignment of AmdsmiNpsCapsT"][::std::mem::align_of::<AmdsmiNpsCapsT>() - 4usize];
-    ["Offset of field: AmdsmiNpsCapsT::amdsmi_nps_flags_t"]
-        [::std::mem::offset_of!(AmdsmiNpsCapsT, amdsmi_nps_flags_t) - 0usize];
+    ["Offset of field: AmdsmiNpsCapsT::nps_flags"]
+        [::std::mem::offset_of!(AmdsmiNpsCapsT, nps_flags) - 0usize];
     ["Offset of field: AmdsmiNpsCapsT::nps_cap_mask"]
         [::std::mem::offset_of!(AmdsmiNpsCapsT, nps_cap_mask) - 0usize];
 };
@@ -3022,6 +3021,7 @@ extern "C" {
 extern "C" {
     pub fn amdsmi_get_power_info(
         processor_handle: AmdsmiProcessorHandle,
+        sensor_ind: u32,
         info: *mut AmdsmiPowerInfoT,
     ) -> AmdsmiStatusT;
 }

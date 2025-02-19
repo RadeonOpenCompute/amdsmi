@@ -28,7 +28,7 @@ find_program(GIT NAMES git)
 
 ## Setup the package version based on git tags.
 set(PKG_VERSION_GIT_TAG_PREFIX "amdsmi_pkg_ver")
-get_package_version_number("24.7.2" ${PKG_VERSION_GIT_TAG_PREFIX} GIT)
+get_package_version_number("25.2.0" ${PKG_VERSION_GIT_TAG_PREFIX} GIT)
 message("Package version: ${PKG_VERSION_STR}")
 set(${AMD_SMI_LIBS_TARGET}_VERSION_MAJOR "${CPACK_PACKAGE_VERSION_MAJOR}")
 set(${AMD_SMI_LIBS_TARGET}_VERSION_MINOR "${CPACK_PACKAGE_VERSION_MINOR}")
@@ -116,15 +116,54 @@ set(AMDSMI_INC_DIR "${PROJECT_SOURCE_DIR}/include/amd_smi")
 set(ROCM_INC_DIR "${PROJECT_SOURCE_DIR}/rocm_smi/include/rocm_smi")
 set(SHR_MUTEX_DIR "${PROJECT_SOURCE_DIR}/third_party/shared_mutex")
 if(ENABLE_ESMI_LIB)
+    # Supported esmi library version tag
+    set(current_esmi_tag "esmi_pkg_ver-4.1.2")
+
     if(NOT EXISTS ${PROJECT_SOURCE_DIR}/esmi_ib_library/src)
         # TODO: use ExternalProject_Add instead or a submodule
-        # as of 2023.10.16 CI builds are broken with an updated submodule
-        execute_process(COMMAND git clone --depth=1 -b esmi_pkg_ver-3.0.3 https://github.com/amd/esmi_ib_library.git ${PROJECT_SOURCE_DIR}/esmi_ib_library)
+        message(STATUS "Adding esmi_ib_library...")
+        execute_process(COMMAND git clone --depth=1 -b ${current_esmi_tag} https://github.com/amd/esmi_ib_library.git ${PROJECT_SOURCE_DIR}/esmi_ib_library)
+    else()
+        message(STATUS "esmi_ib_library already installed, checking version...")
+
+        # Grab latest commit and get the tag
+        execute_process(
+            COMMAND git rev-list --tags --max-count=1
+            WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}/esmi_ib_library
+            OUTPUT_VARIABLE latest_commit
+            OUTPUT_STRIP_TRAILING_WHITESPACE
+        )
+        execute_process(
+            COMMAND git describe --tags ${latest_commit} --match "*pkg*"
+            WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}/esmi_ib_library
+            OUTPUT_VARIABLE latest_esmi_tag
+            OUTPUT_STRIP_TRAILING_WHITESPACE
+        )
+
+        # Update to latest tags if not matched
+        if(NOT latest_esmi_tag STREQUAL current_esmi_tag)
+            message(STATUS "Updating esmi_ib_library...")
+            execute_process(
+                COMMAND git clone --depth=1 -b ${current_esmi_tag} https://github.com/amd/esmi_ib_library.git ${PROJECT_SOURCE_DIR}/esmi_ib_library_temp
+                RESULT_VARIABLE clone_result
+            )
+            if(clone_result EQUAL 0)
+                file(REMOVE_RECURSE ${PROJECT_SOURCE_DIR}/esmi_ib_library)
+                file(RENAME ${PROJECT_SOURCE_DIR}/esmi_ib_library_temp ${PROJECT_SOURCE_DIR}/esmi_ib_library)
+                message(STATUS "Successfully cloned updated esmi_ib_library")
+            else()
+                file(REMOVE_RECURSE ${PROJECT_SOURCE_DIR}/esmi_ib_library_temp)
+                message(FATAL_ERROR "Failed to clone updated esmi_ib_library")
+            endif()
+        else()
+            message(STATUS "esmi_ib_library is the latest version: ${current_esmi_tag}...")
+        endif()
     endif()
-    if(NOT EXISTS ${PROJECT_SOURCE_DIR}/esmi_ib_library/include/asm/amd_hsmp.h)
-       file(COPY "${PROJECT_SOURCE_DIR}/include/amd_smi/impl/amd_hsmp.h"
-            DESTINATION "${PROJECT_SOURCE_DIR}/esmi_ib_library/include/asm")
-    endif()
+
+    # Make sure to update the amd_hsmp.h file with the corresponding esmi version
+    file(COPY "${PROJECT_SOURCE_DIR}/include/amd_smi/impl/amd_hsmp.h"
+         DESTINATION "${PROJECT_SOURCE_DIR}/esmi_ib_library/include/asm")
+
     add_definitions("-DENABLE_ESMI_LIB=1")
     set(ESMI_INC_DIR "${PROJECT_SOURCE_DIR}/esmi_ib_library/include")
     set(ESMI_SRC_DIR "${PROJECT_SOURCE_DIR}/esmi_ib_library/src")
@@ -132,7 +171,9 @@ if(ENABLE_ESMI_LIB)
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-write-strings")
 endif()
 
+# sets DRM_LIBRARIES and DRM_INCLUDE_DIRS
 pkg_check_modules(DRM REQUIRED libdrm)
+# sets AMDGPU_DRM_LIBRARIES and AMDGPU_DRM_INCLUDE_DIRS
 pkg_check_modules(AMDGPU_DRM REQUIRED libdrm_amdgpu)
 
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/include ${CMAKE_CURRENT_SOURCE_DIR}/third_party/shared_mutex
@@ -266,8 +307,13 @@ set(CPACK_DEBIAN_DEV_PACKAGE_DEPENDS ${CPACK_DEBIAN_PACKAGE_DEPENDS})
 
 ## Process the Debian install/remove scripts to update the CPACK variables
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/DEBIAN/postinst.in DEBIAN/postinst @ONLY)
-configure_file(${CMAKE_CURRENT_SOURCE_DIR}/DEBIAN/prerm.in DEBIAN/prerm @ONLY)
+configure_file(${CMAKE_CURRENT_SOURCE_DIR}/DEBIAN/amd-smi-lib/prerm.in DEBIAN/prerm @ONLY)
+configure_file(${CMAKE_CURRENT_SOURCE_DIR}/DEBIAN/amd-smi-lib-tests/prerm.in DEBIAN/prerm @ONLY)
 set(CPACK_DEBIAN_PACKAGE_CONTROL_EXTRA "DEBIAN/postinst;DEBIAN/prerm")
+
+# Assign control scripts to the AMDSMI Lib & Tests packages
+set(CPACK_DEBIAN_DEV_PACKAGE_CONTROL_EXTRA "${CMAKE_CURRENT_BINARY_DIR}/DEBIAN/amd-smi-lib/prerm")
+set(CPACK_DEBIAN_TESTS_PACKAGE_CONTROL_EXTRA "${CMAKE_CURRENT_BINARY_DIR}/DEBIAN/amd-smi-lib-tests/prerm")
 
 # RPM package specific variables
 set(CPACK_RPM_EXCLUDE_FROM_AUTO_FILELIST_ADDITION
@@ -304,9 +350,11 @@ endif()
 ## Enable Component Mode and set component specific flags
 set(CPACK_DEB_COMPONENT_INSTALL ON)
 set(CPACK_DEBIAN_DEV_PACKAGE_NAME "${AMD_SMI_PACKAGE}")
+set(CPACK_DEBIAN_TESTS_PACKAGE_NAME "${AMD_SMI_PACKAGE}-tests")
 set(CPACK_DEBIAN_ASAN_PACKAGE_NAME "${AMD_SMI_PACKAGE}-asan")
 set(CPACK_RPM_COMPONENT_INSTALL ON)
 set(CPACK_RPM_DEV_PACKAGE_NAME "${AMD_SMI_PACKAGE}")
+set(CPACK_RPM_TESTS_PACKAGE_NAME "${AMD_SMI_PACKAGE}-tests")
 set(CPACK_RPM_ASAN_PACKAGE_NAME "${AMD_SMI_PACKAGE}-asan")
 if(ENABLE_ASAN_PACKAGING)
   # ASAN Package requires only asan component with libraries and license file
@@ -321,10 +369,12 @@ endif()
 
 ## Process the Rpm install/remove scripts to update the CPACK variables
 configure_file("${CMAKE_CURRENT_SOURCE_DIR}/RPM/post.in" RPM/post @ONLY)
-configure_file("${CMAKE_CURRENT_SOURCE_DIR}/RPM/preun.in" RPM/preun @ONLY)
+configure_file("${CMAKE_CURRENT_SOURCE_DIR}/RPM/amd-smi-lib/preun.in" RPM/preun @ONLY)
+configure_file("${CMAKE_CURRENT_SOURCE_DIR}/RPM/amd-smi-lib-tests/preun.in" RPM/preun @ONLY)
 configure_file("${CMAKE_CURRENT_SOURCE_DIR}/RPM/postun.in" RPM/postun @ONLY)
 set(CPACK_RPM_POST_INSTALL_SCRIPT_FILE "${CMAKE_CURRENT_BINARY_DIR}/RPM/post")
-set(CPACK_RPM_PRE_UNINSTALL_SCRIPT_FILE "${CMAKE_CURRENT_BINARY_DIR}/RPM/preun")
+set(CPACK_RPM_PRE_UNINSTALL_SCRIPT_FILE "${CMAKE_CURRENT_BINARY_DIR}/RPM/amd-smi-lib/preun")
+set(CPACK_RPM_PRE_UNINSTALL_SCRIPT_FILE "${CMAKE_CURRENT_BINARY_DIR}/RPM/amd-smi-lib-tests/preun")
 set(CPACK_RPM_POST_UNINSTALL_SCRIPT_FILE "${CMAKE_CURRENT_BINARY_DIR}/RPM/postun")
 
 #Set the names now using CPACK utility

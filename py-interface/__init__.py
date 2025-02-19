@@ -39,6 +39,8 @@ try:
     from .amdsmi_interface import amdsmi_get_cpu_smu_fw_version
     from .amdsmi_interface import amdsmi_get_cpu_core_energy
     from .amdsmi_interface import amdsmi_get_cpu_socket_energy
+    from .amdsmi_interface import amdsmi_get_threads_per_core
+    from .amdsmi_interface import amdsmi_get_cpu_hsmp_driver_version
     from .amdsmi_interface import amdsmi_get_cpu_prochot_status
     from .amdsmi_interface import amdsmi_get_cpu_fclk_mclk
     from .amdsmi_interface import amdsmi_get_cpu_cclk_limit
@@ -234,6 +236,9 @@ from .amdsmi_interface import amdsmi_get_gpu_metrics_header_info
 from .amdsmi_interface import amdsmi_get_gpu_reg_table_info
 from .amdsmi_interface import amdsmi_get_gpu_pm_metrics_info
 
+# # Virtualization Mode Detection
+from .amdsmi_interface import amdsmi_get_gpu_virtualization_mode_info
+
 # # Enums
 from .amdsmi_interface import AmdSmiInitFlags
 from .amdsmi_interface import AmdSmiContainerTypes
@@ -263,6 +268,7 @@ from .amdsmi_interface import AmdSmiIoLinkType
 from .amdsmi_interface import AmdSmiLinkType
 from .amdsmi_interface import AmdSmiUtilizationCounterType
 from .amdsmi_interface import AmdSmiProcessorType
+from .amdsmi_interface import AmdSmiVirtualizationMode
 
 # Exceptions
 from .amdsmi_exception import AmdSmiLibraryException

@@ -339,7 +339,7 @@ class AMDSMIParser(argparse.ArgumentParser):
 
         amdsmi_helpers = self.helpers
         class _GPUSelectAction(argparse.Action):
-            ouputformat=self.helpers.get_output_format()
+            outputformat=self.helpers.get_output_format()
             # Checks the values
             def __call__(self, parser, args, values, option_string=None):
                 if "all" in gpu_choices:
@@ -350,13 +350,13 @@ class AMDSMIParser(argparse.ArgumentParser):
                     setattr(args, self.dest, selected_device_handles)
                 else:
                     if selected_device_handles == '':
-                        raise amdsmi_cli_exceptions.AmdSmiMissingParameterValueException("--gpu", _GPUSelectAction.ouputformat)
+                        raise amdsmi_cli_exceptions.AmdSmiMissingParameterValueException("--gpu", _GPUSelectAction.outputformat)
                     elif not gpu_format:
                         raise amdsmi_cli_exceptions.AmdSmiInvalidParameterValueException(selected_device_handles,
-                                                                                         _GPUSelectAction.ouputformat)
+                                                                                         _GPUSelectAction.outputformat)
                     else:
                         raise amdsmi_cli_exceptions.AmdSmiDeviceNotFoundException(selected_device_handles,
-                                                                                  _GPUSelectAction.ouputformat,
+                                                                                  _GPUSelectAction.outputformat,
                                                                                   True, False, False)
 
         return _GPUSelectAction
@@ -425,7 +425,7 @@ class AMDSMIParser(argparse.ArgumentParser):
         """
         amdsmi_helpers = self.helpers
         class _CPUSelectAction(argparse.Action):
-            ouputformat=self.helpers.get_output_format()
+            outputformat=self.helpers.get_output_format()
             # Checks the values
             def __call__(self, parser, args, values, option_string=None):
                 if "all" in cpu_choices:
@@ -436,13 +436,13 @@ class AMDSMIParser(argparse.ArgumentParser):
                     setattr(args, self.dest, selected_device_handles)
                 else:
                     if selected_device_handles == '':
-                        raise amdsmi_cli_exceptions.AmdSmiMissingParameterValueException("--cpu", _CPUSelectAction.ouputformat)
+                        raise amdsmi_cli_exceptions.AmdSmiMissingParameterValueException("--cpu", _CPUSelectAction.outputformat)
                     elif not cpu_format:
                         raise amdsmi_cli_exceptions.AmdSmiInvalidParameterValueException(selected_device_handles,
-                                                                                         _CPUSelectAction.ouputformat)
+                                                                                         _CPUSelectAction.outputformat)
                     else:
                         raise amdsmi_cli_exceptions.AmdSmiDeviceNotFoundException(selected_device_handles,
-                                                                                  _CPUSelectAction.ouputformat,
+                                                                                  _CPUSelectAction.outputformat,
                                                                                   False, True, False)
         return _CPUSelectAction
 
@@ -454,7 +454,7 @@ class AMDSMIParser(argparse.ArgumentParser):
         """
         amdsmi_helpers = self.helpers
         class _CoreSelectAction(argparse.Action):
-            ouputformat=self.helpers.get_output_format()
+            outputformat=self.helpers.get_output_format()
             # Checks the values
             def __call__(self, parser, args, values, option_string=None):
                 if "all" in core_choices:
@@ -465,13 +465,13 @@ class AMDSMIParser(argparse.ArgumentParser):
                     setattr(args, self.dest, selected_device_handles)
                 else:
                     if selected_device_handles == '':
-                        raise amdsmi_cli_exceptions.AmdSmiMissingParameterValueException("--core", _CoreSelectAction.ouputformat)
+                        raise amdsmi_cli_exceptions.AmdSmiMissingParameterValueException("--core", _CoreSelectAction.outputformat)
                     elif not core_format:
                         raise amdsmi_cli_exceptions.AmdSmiInvalidParameterValueException(selected_device_handles,
-                                                                                         _CoreSelectAction.ouputformat)
+                                                                                         _CoreSelectAction.outputformat)
                     else:
                         raise amdsmi_cli_exceptions.AmdSmiDeviceNotFoundException(selected_device_handles,
-                                                                                  _CoreSelectAction.ouputformat,
+                                                                                  _CoreSelectAction.outputformat,
                                                                                   False, False, True)
         return _CoreSelectAction
 
@@ -679,13 +679,13 @@ class AMDSMIParser(argparse.ArgumentParser):
         # Add Universal Arguments
         self._add_command_modifiers(version_parser)
 
-        # help info; CPU version code will be added back in once amd_hsmp code has been completed
+        # help info
         gpu_version_help = "Display the current amdgpu driver version"
-        # cpu_version_help = "Display the current amd_hsmp driver version"
+        cpu_version_help = "Display the current amd_hsmp driver version"
 
         # Add GPU and CPU version Arguments
         version_parser.add_argument('-g', '--gpu_version', action='store_true', required=False, help=gpu_version_help)
-        # version_parser.add_argument('-c', '--cpu_version', action='store_true', required=False, help=cpu_version_help)
+        version_parser.add_argument('-c', '--cpu_version', action='store_true', required=False, help=cpu_version_help)
 
 
     def _add_list_parser(self, subparsers: argparse._SubParsersAction, func):
@@ -907,7 +907,7 @@ class AMDSMIParser(argparse.ArgumentParser):
         cpu_freq_help = "Displays currentFclkMemclk frequencies and cclk frequency limit"
         cpu_c0_res_help = "Displays C0 residency"
         cpu_lclk_dpm_help = "Displays lclk dpm level range. Requires socket ID and NBOID as inputs"
-        cpu_pwr_svi_telemtry_rails_help = "Displays svi based telemetry for all rails"
+        cpu_pwr_svi_telemetry_rails_help = "Displays svi based telemetry for all rails"
         cpu_io_bandwidth_help = "Displays current IO bandwidth for the selected CPU.\
         \n input parameters are bandwidth type(1) and link ID encodings\
         \n i.e. P2, P3, G0 - G7"
@@ -987,8 +987,8 @@ class AMDSMIParser(argparse.ArgumentParser):
             cpu_group.add_argument('--cpu-c0-res', action='store_true', required=False, help=cpu_c0_res_help)
             cpu_group.add_argument('--cpu-lclk-dpm-level', action='append', required=False, type=self._not_negative_int,
                                     nargs=1, metavar=("NBIOID"), help=cpu_lclk_dpm_help)
-            cpu_group.add_argument('--cpu-pwr-svi-telemtry-rails', action='store_true', required=False,
-                                    help=cpu_pwr_svi_telemtry_rails_help)
+            cpu_group.add_argument('--cpu-pwr-svi-telemetry-rails', action='store_true', required=False,
+                                    help=cpu_pwr_svi_telemetry_rails_help)
             cpu_group.add_argument('--cpu-io-bandwidth', action='append', required=False, nargs=2,
                                     metavar=("IO_BW", "LINKID_NAME"), help=cpu_io_bandwidth_help)
             cpu_group.add_argument('--cpu-xgmi-bandwidth', action='append', required=False, nargs=2,
@@ -1162,28 +1162,30 @@ class AMDSMIParser(argparse.ArgumentParser):
         set_value_optionals_title = "Set Arguments"
 
         # Help text for Arguments only on BM platforms
-        set_fan_help = "Set GPU fan speed (0-255 or 0-100%%)"
-        perf_level_help_choices_str = ", ".join(self.helpers.get_perf_levels()[0][0:-1])
-        set_perf_level_help = f"Set one of the following performance levels:\n\t{perf_level_help_choices_str}"
-        power_profile_choices_str = ", ".join(self.helpers.get_power_profiles()[0:-1])
-        set_profile_help = f"Set power profile level (#) or choose one of available profiles:\n\t{power_profile_choices_str}"
-        perf_det_choices_str = ", ".join(self.helpers.get_perf_det_levels())
-        set_perf_det_help = f"Set performance determinism and select one of the corresponding performance levels:\n\t{perf_det_choices_str}"
-        (accelerator_set_choices, _) = self.helpers.get_accelerator_choices_types_indices()
-        memory_partition_choices_str = ", ".join(self.helpers.get_memory_partition_types())
-        set_compute_partition_help = f"Set one of the following the accelerator type or profile index:\n\t{accelerator_set_choices}.\n\tUse `sudo amd-smi partition --accelerator` to find acceptable values."
-        set_memory_partition_help = f"Set one of the following the memory partition modes:\n\t{memory_partition_choices_str}"
-        power_cap_min, power_cap_max = self.helpers.get_power_caps()
-        power_cap_max = self.helpers.convert_SI_unit(power_cap_max, AMDSMIHelpers.SI_Unit.MICRO)
-        power_cap_min = self.helpers.convert_SI_unit(power_cap_min, AMDSMIHelpers.SI_Unit.MICRO)
-        set_power_cap_help = f"Set power capacity limit:\n\tmin cap: {power_cap_min} W, max cap: {power_cap_max} W"
-        soc_pstate_help_info = ", ".join(self.helpers.get_soc_pstates())
-        set_soc_pstate_help = f"Set the GPU soc pstate policy using policy id, an integer. Valid id's include:\n\t{soc_pstate_help_info}"
-        xgmi_plpd_help_info = ", ".join(self.helpers.get_xgmi_plpd_policies())
-        set_xgmi_plpd_help = f"Set the GPU XGMI per-link power down policy using policy id, an integer. Valid id's include:\n\t{xgmi_plpd_help_info}"
-        set_clk_limit_help = "Sets the sclk (aka gfxclk) or mclk minimum and maximum frequencies. \n\tex: amd-smi set -L (sclk | mclk) (min | max) value"
-        set_clock_freq_help = "Set a number of sclk (aka gfxclk), mclk, fclk, pcie, or socclk frequency performance levels.\n\tUse `amd-smi static --clock` to find acceptable levels."
-        set_process_isolation_help = "Enable or disable the GPU process isolation on a per partition basis: 0 for disable and 1 for enable.\n"
+        if self.helpers.is_amdgpu_initialized():
+            if self.helpers.is_baremetal():
+                set_fan_help = "Set GPU fan speed (0-255 or 0-100%%)"
+                perf_level_help_choices_str = ", ".join(self.helpers.get_perf_levels()[0][0:-1])
+                set_perf_level_help = f"Set one of the following performance levels:\n\t{perf_level_help_choices_str}"
+                power_profile_choices_str = ", ".join(self.helpers.get_power_profiles()[0:-1])
+                set_profile_help = f"Set power profile level (#) or choose one of available profiles:\n\t{power_profile_choices_str}"
+                perf_det_choices_str = ", ".join(self.helpers.get_perf_det_levels())
+                set_perf_det_help = f"Set performance determinism and select one of the corresponding performance levels:\n\t{perf_det_choices_str}"
+                (accelerator_set_choices, _) = self.helpers.get_accelerator_choices_types_indices()
+                memory_partition_choices_str = ", ".join(self.helpers.get_memory_partition_types())
+                set_compute_partition_help = f"Set one of the following the accelerator type or profile index:\n\t{accelerator_set_choices}.\n\tUse `sudo amd-smi partition --accelerator` to find acceptable values."
+                set_memory_partition_help = f"Set one of the following the memory partition modes:\n\t{memory_partition_choices_str}"
+                power_cap_min, power_cap_max = self.helpers.get_power_caps()
+                power_cap_max = self.helpers.convert_SI_unit(power_cap_max, AMDSMIHelpers.SI_Unit.MICRO)
+                power_cap_min = self.helpers.convert_SI_unit(power_cap_min, AMDSMIHelpers.SI_Unit.MICRO)
+                set_power_cap_help = f"Set power capacity limit:\n\tmin cap: {power_cap_min} W, max cap: {power_cap_max} W"
+                soc_pstate_help_info = ", ".join(self.helpers.get_soc_pstates())
+                set_soc_pstate_help = f"Set the GPU soc pstate policy using policy id, an integer. Valid id's include:\n\t{soc_pstate_help_info}"
+                xgmi_plpd_help_info = ", ".join(self.helpers.get_xgmi_plpd_policies())
+                set_xgmi_plpd_help = f"Set the GPU XGMI per-link power down policy using policy id, an integer. Valid id's include:\n\t{xgmi_plpd_help_info}"
+                set_clk_limit_help = "Sets the sclk (aka gfxclk) or mclk minimum and maximum frequencies. \n\tex: amd-smi set -L (sclk | mclk) (min | max) value"
+                set_clock_freq_help = "Set one or more sclk (aka gfxclk), mclk, fclk, pcie, or socclk frequency levels.\n\tUse `amd-smi static --clock` to find acceptable levels."
+                set_process_isolation_help = "Enable or disable the GPU process isolation on a per partition basis: 0 for disable and 1 for enable.\n"
 
         # Help text for CPU set options
         set_cpu_pwr_limit_help = "Set power limit for the given socket. Input parameter is power limit value."
@@ -1224,10 +1226,9 @@ class AMDSMIParser(argparse.ArgumentParser):
                 set_value_exclusive_group.add_argument('-o', '--power-cap', action='store', type=lambda value: self._positive_int(value, '--power-cap'), required=False, help=set_power_cap_help, metavar='WATTS')
                 set_value_exclusive_group.add_argument('-p', '--soc-pstate', action='store', required=False, type=lambda value: self._not_negative_int(value, '--soc-pstate'), help=set_soc_pstate_help, metavar='POLICY_ID')
                 set_value_exclusive_group.add_argument('-x', '--xgmi-plpd', action='store', required=False, type=lambda value: self._not_negative_int(value, '--xgmi-plpd'), help=set_xgmi_plpd_help, metavar='POLICY_ID')
-                set_value_exclusive_group.add_argument('-c', '--clk-level', action=self._level_select(), nargs='+', required=False, help=set_clock_freq_help, metavar=('CLK_TYPE', 'PERF_LEVELS'))
-
-            set_value_exclusive_group.add_argument('-L', '--clk-limit', action=self._limit_select(), nargs=3, required=False, help=set_clk_limit_help, metavar=('CLK_TYPE', 'LIM_TYPE', 'VALUE'))
-            set_value_exclusive_group.add_argument('-R', '--process-isolation', action='store', choices=[0,1], type=lambda value: self._not_negative_int(value, '--process-isolation'), required=False, help=set_process_isolation_help, metavar='STATUS')
+                set_value_exclusive_group.add_argument('-c', '--clk-level', action=self._level_select(), nargs='+', required=False, help=set_clock_freq_help, metavar=('CLK_TYPE', 'FREQ_LEVELS'))
+                set_value_exclusive_group.add_argument('-L', '--clk-limit', action=self._limit_select(), nargs=3, required=False, help=set_clk_limit_help, metavar=('CLK_TYPE', 'LIM_TYPE', 'VALUE'))
+                set_value_exclusive_group.add_argument('-R', '--process-isolation', action='store', choices=[0,1], type=lambda value: self._not_negative_int(value, '--process-isolation'), required=False, help=set_process_isolation_help, metavar='STATUS')
 
 
         if self.helpers.is_amd_hsmp_initialized():

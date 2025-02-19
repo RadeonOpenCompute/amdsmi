@@ -7,13 +7,17 @@ Full documentation for amd_smi_lib is available at [https://rocm.docs.amd.com/pr
 
 ### Added
 
+- **Added dynamic virtualization mode detection**.  
+  - Added new C and Python API `amdsmi_get_gpu_virtualization_mode_info`
+  - Added new C and Python enum `amdsmi_virtualization_mode_t`
+
 - **Added TVIOL_ACTIVE to `amd-smi monitor`**.  
 Added temperature violation active or not status to `amd-smi monitor`. TVIOL_ACTIVE will be displayed as below:
- - True if active
- - False if not active
- - N/A if not supported.
+  - True if active
+  - False if not active
+  - N/A if not supported.
 
- Example CLI output:
+  Example CLI output:
 ```shell
 $ amd-smi monitor --viol
 GPU  PVIOL  TVIOL  TVIOL_ACTIVE  PHOT_TVIOL  VR_TVIOL  HBM_TVIOL
@@ -27,7 +31,7 @@ GPU  PVIOL  TVIOL  TVIOL_ACTIVE  PHOT_TVIOL  VR_TVIOL  HBM_TVIOL
   7  100 %    0 %         False         0 %       0 %        0 %
 ```
 
-- **Added support for GPU metrics 1.7 to `amdsmi_get_gpu_metrics_info()`**  
+- **Added support for GPU metrics 1.7 to `amdsmi_get_gpu_metrics_info()`**.  
 Updated `amdsmi_get_gpu_metrics_info()` and structure `amdsmi_gpu_metrics_t` to include new fields for XGMI Link Status, graphics clocks below host limit (per XCP), and VRAM max bandwidth:  
   - `uint64_t vram_max_bandwidth` - VRAM max bandwidth at max memory clock (GB/s)
   - `uint16_t xgmi_link_status[MAX_NUM_XGMI_LINKS]` - XGMI link statis, 1=Up 0=Down
@@ -135,12 +139,42 @@ GPU: 0
 
 ### Changed
 
-- **Added amdgpu driver version to `amd-smi version` command**.  
+- **Added an additional argument `sensor_ind` to `amdsmi_get_power_info()`**.  
+This change breaks previous C API calls and will require a change
+Python API now accepts `sensor_ind` as an optional argument, does not imapact previous usage
+
+- **Depricated enum `AMDSMI_NORMAL_STRING_LENGTH` in favor of `AMDSMI_MAX_STRING_LENGTH`**.  
+
+- **Changed to use thread local mutex by default**.  
+Most sysfs reads do not require cross-process level mutex, and writes to sysfs should be protected by the kernel already.  
+Users can still switch to the old behavior by setting the environment variable `AMDSMI_MUTEX_CROSS_PROCESS=1`.
+
+- **Changed `amdsmi_vram_vendor_type_t` enum names impacting `amdsmi_vram_info_t` structure**. 
+This also change impacts usage of the vram_vendor output of `amdsmi_get_gpu_vram_info()` 
+
+- **Changed `amdsmi_nps_caps_t` struct impacting `amdsmi_memory_partition_config_t`, `amdsmi_accelerator_partition_t`, `amdsmi_accelerator_partition_profile_config_t`**.  
+  - Functions affected by struct change are:
+    - `amdsmi_get_gpu_memory_partition_config()`
+    - `amdsmi_get_gpu_accelerator_partition_profile()`
+    - `amdsmi_get_gpu_accelerator_partition_profile_config()`
+
+- **Corrected CLI CPU argument name**.  
+  - `--cpu-pwr-svi-telemtry-rails` to `--cpu-pwr-svi-telemetry-rails`
+
+- **Added amdgpu driver version and amd_hsmp driver version to `amd-smi version` command**.  
   - The `amd-smi version` command can now also display the amdgpu driver version using the `-g` flag.
+  - The amd_hsmp driver version can also be displayed using the `-c` flag.
+  - The new default for the `version` command is to display all the version information, including both amdgpu and amd_hsmp driver versions.
 
 ```shell
+amd-smi version
+AMDSMI Tool: 24.7.1+b446d6c-dirty | AMDSMI Library version: 24.7.2.0 | ROCm version: N/A | amdgpu version: 6.10.10 | amd_hsmp version: 2.2
+
 amd-smi version -g
-AMDSMI Tool: 24.7.1+6fa991c-dirty | AMDSMI Library version: 24.7.2.0 | ROCm version: N/A | amdgpu version: 6.12.2
+AMDSMI Tool: 24.7.1+b446d6c-dirty | AMDSMI Library version: 24.7.2.0 | ROCm version: N/A | amdgpu version: 6.10.10
+
+amd-smi version -c
+AMDSMI Tool: 24.7.1+b446d6c-dirty | AMDSMI Library version: 24.7.2.0 | ROCm version: N/A | amd_hsmp version: 2.2
 ```
 
 - **All `amd-smi set` and `amd-smi reset` options are now mutually exclusive**.  
@@ -2267,3 +2301,4 @@ Now the information is displayed as a table by each GPU's BDF, which closer rese
 
 - **Fix for driver not initialized**.  
 If driver module is not loaded, user retrieve error reponse indicating amdgpu module is not loaded.
+
