@@ -272,7 +272,9 @@ typedef enum {
     AMDSMI_PROCESSOR_TYPE_NON_AMD_GPU,
     AMDSMI_PROCESSOR_TYPE_NON_AMD_CPU,
     AMDSMI_PROCESSOR_TYPE_AMD_CPU_CORE,
-    AMDSMI_PROCESSOR_TYPE_AMD_APU
+    AMDSMI_PROCESSOR_TYPE_AMD_APU,
+    AMDSMI_PROCESSOR_TYPE_BRCM_NIC,
+    AMDSMI_PROCESSOR_TYPE_BRCM_SWITCH
 } processor_type_t;
 
 /**
@@ -964,6 +966,25 @@ typedef struct {
  *
  * @cond @tag{gpu_bm_linux} @tag{host} @endcond
  */
+typedef struct {
+    uint32_t nic_temp_crit_alarm;
+    uint32_t nic_temp_emergency_alarm;
+    uint32_t nic_temp_shutdown_alarm;
+    uint32_t nic_temp_max_alarm;
+    uint32_t nic_temp_crit;
+    uint32_t nic_temp_emergency;
+    uint32_t nic_temp_input;
+    uint32_t nic_temp_max;
+    uint32_t nic_temp_shutdown;
+} amdsmi_nic_temperature_metric_t;
+
+typedef struct {
+    uint32_t current_link_speed;
+    uint32_t max_link_speed;
+    uint32_t current_link_width;
+    uint32_t max_link_width;
+} amdsmi_brcm_link_metric_t;
+
 typedef struct {
     char  model_number[AMDSMI_MAX_STRING_LENGTH];
     char  product_serial[AMDSMI_MAX_STRING_LENGTH];
@@ -5624,6 +5645,12 @@ amdsmi_set_gpu_event_notification_mask(amdsmi_processor_handle processor_handle,
  *  @return ::amdsmi_status_t | ::AMDSMI_STATUS_SUCCESS on success, non-zero on fail
  */
 amdsmi_status_t
+amdsmi_get_gpu_device_bdf(amdsmi_processor_handle processor_handle, amdsmi_bdf_t *bdf);
+amdsmi_status_t 
+amdsmi_get_nic_device_bdf(amdsmi_processor_handle processor_handle, amdsmi_bdf_t *bdf);
+amdsmi_status_t 
+amdsmi_get_switch_device_bdf(amdsmi_processor_handle processor_handle, amdsmi_bdf_t *bdf);
+amdsmi_status_t
 amdsmi_get_gpu_event_notification(int timeout_ms, uint32_t *num_elem, amdsmi_evt_notification_data_t *data);
 
 /**
@@ -5644,7 +5671,15 @@ amdsmi_get_gpu_event_notification(int timeout_ms, uint32_t *num_elem, amdsmi_evt
  *
  *  @return ::amdsmi_status_t | ::AMDSMI_STATUS_SUCCESS on success, non-zero on fail
  */
-amdsmi_status_t amdsmi_stop_gpu_event_notification(amdsmi_processor_handle processor_handle);
+
+amdsmi_status_t
+amdsmi_get_gpu_device_uuid(amdsmi_processor_handle processor_handle, unsigned int *uuid_length, char *uuid);
+amdsmi_status_t
+amdsmi_get_nic_device_uuid(amdsmi_processor_handle processor_handle, unsigned int *uuid_length, char *uuid);
+amdsmi_status_t 
+amdsmi_get_switch_device_uuid(amdsmi_processor_handle processor_handle, unsigned int *uuid_length, char *uuid);
+amdsmi_status_t 
+amdsmi_stop_gpu_event_notification(amdsmi_processor_handle processor_handle);
 
 /** @} End tagEventNotification */
 
@@ -5670,6 +5705,10 @@ amdsmi_status_t amdsmi_stop_gpu_event_notification(amdsmi_processor_handle proce
  */
 amdsmi_status_t
 amdsmi_get_gpu_driver_info(amdsmi_processor_handle processor_handle, amdsmi_driver_info_t *info);
+amdsmi_status_t 
+amdsmi_get_nic_temp_info(amdsmi_processor_handle processor_handle, amdsmi_nic_temperature_metric_t *info);
+amdsmi_status_t 
+amdsmi_get_switch_link_info(amdsmi_processor_handle processor_handle, amdsmi_brcm_link_metric_t *info);
 
 /** @} End tagSoftwareVersion */
 

@@ -305,7 +305,7 @@ class AMDSMIHelpers():
 
         try:
             # amdsmi_get_processor_handles returns the device_handles storted for gpu_id
-            device_handles = amdsmi_interface.amdsmi_get_processor_handles()
+            device_handles = amdsmi_interface.get_gpu_handles()
         except amdsmi_interface.AmdSmiLibraryException as e:
             if e.err_code in (amdsmi_interface.amdsmi_wrapper.AMDSMI_STATUS_NOT_INIT,
                               amdsmi_interface.amdsmi_wrapper.AMDSMI_STATUS_DRIVER_NOT_LOADED):
@@ -318,8 +318,10 @@ class AMDSMIHelpers():
         else:
             # Handle spacing for the gpu_choices_str
             max_padding = int(math.log10(len(device_handles))) + 1
-
+            GPU_device=True
             for gpu_id, device_handle in enumerate(device_handles):
+             device_type=amdsmi_interface.amdsmi_get_processor_type(device_handle)
+             if device_type["processor_type"]=="AMDSMI_PROCESSOR_TYPE_AMD_GPU":
                 bdf = amdsmi_interface.amdsmi_get_gpu_device_bdf(device_handle)
                 uuid = amdsmi_interface.amdsmi_get_gpu_device_uuid(device_handle)
                 gpu_choices[str(gpu_id)] = {
@@ -340,6 +342,105 @@ class AMDSMIHelpers():
 
         return (gpu_choices, gpu_choices_str)
 
+    
+    def get_nic_choices(self):
+        nic_choices = {}
+        nic_choices_str = ""
+        device_handles = []
+
+        try:
+            # get_nic_handles returns the device_handles storted for nic_id
+            device_handles = amdsmi_interface.get_nic_handles()
+         
+        except amdsmi_interface.AmdSmiLibraryException as e:
+          
+            if e.err_code in (amdsmi_interface.amdsmi_wrapper.AMDSMI_STATUS_NOT_INIT,
+                              amdsmi_interface.amdsmi_wrapper.AMDSMI_STATUS_DRIVER_NOT_LOADED):
+                logging.info('Unable to get device choices, driver not initialized (BRCM_NIC not found in modules)')
+              
+            else:
+                raise e
+
+        if len(device_handles) == 0:
+            logging.info('Unable to find any devices, check if driver is initialized (BRCM_NIC not found in modules)')
+        else:
+            # Handle spacing for the gpu_choices_str
+            max_padding = int(math.log10(len(device_handles))) + 1
+          
+            for nic_id, device_handle in enumerate(device_handles):
+                bdf = amdsmi_interface.amdsmi_get_nic_device_bdf(device_handle)
+              
+                #uuid="abc"
+                uuid = amdsmi_interface.amdsmi_get_nic_device_uuid(device_handle)
+               
+                nic_choices[str(nic_id)] = {
+                    "BDF": bdf,
+                    "UUID": uuid,
+                    "Device Handle": device_handle,
+                }
+
+                if nic_id == 0:
+                    id_padding = max_padding
+                else:
+                    id_padding = max_padding - int(math.log10(nic_id))
+                nic_choices_str += f"ID: {nic_id}{' ' * id_padding}| BDF: {bdf} | UUID: {uuid}\n"
+
+           
+            # Add the all option to the gpu_choices
+            nic_choices["all"] = "all"
+            nic_choices_str += f"  all{' ' * max_padding}| Selects all devices\n"
+
+        return (nic_choices, nic_choices_str)
+
+     #BRCM POC to get switch choices 
+    def get_switch_choices(self):
+        switch_choices = {}
+        switch_choices_str = ""
+        device_handles = []
+
+        try:
+            # get_switch_handles returns the device_handles storted for switch_id
+            device_handles = amdsmi_interface.get_switch_handles()
+     
+        except amdsmi_interface.AmdSmiLibraryException as e:
+      
+            if e.err_code in (amdsmi_interface.amdsmi_wrapper.AMDSMI_STATUS_NOT_INIT,
+                              amdsmi_interface.amdsmi_wrapper.AMDSMI_STATUS_DRIVER_NOT_LOADED):
+                logging.info('Unable to get device choices, driver not initialized (BRCM_switch not found in modules)')
+          
+            else:
+                raise e
+
+        if len(device_handles) == 0:
+            logging.info('Unable to find any devices, check if driver is initialized (BRCM_switch not found in modules)')
+        else:
+            # Handle spacing for the gpu_choices_str
+            max_padding = int(math.log10(len(device_handles))) + 1
+      
+            for switch_id, device_handle in enumerate(device_handles):
+                bdf = amdsmi_interface.amdsmi_get_switch_device_bdf(device_handle)
+          
+                #uuid="abc"
+                uuid = amdsmi_interface.amdsmi_get_switch_device_uuid(device_handle)
+           
+                switch_choices[str(switch_id)] = {
+                    "BDF": bdf,
+                    "UUID": uuid,
+                    "Device Handle": device_handle,
+                }
+
+                if switch_id == 0:
+                    id_padding = max_padding
+                else:
+                    id_padding = max_padding - int(math.log10(switch_id))
+                switch_choices_str += f"ID: {switch_id}{' ' * id_padding}| BDF: {bdf} | UUID: {uuid}\n"
+
+       
+            # Add the all option to the gpu_choices
+            switch_choices["all"] = "all"
+            switch_choices_str += f"  all{' ' * max_padding}| Selects all devices\n"
+
+        return (switch_choices, switch_choices_str)
 
     @staticmethod
     def is_UUID(uuid_question: str) -> bool:
@@ -410,6 +511,124 @@ class AMDSMIHelpers():
                 return False, valid_gpu_format, gpu_selection
         return True, True, selected_device_handles
 
+
+    def get_device_handles_from_nic_selections(self, nic_selections: List[str], nic_choices=None):
+    
+        """Convert provided nic_selections to device_handles
+
+        Args:
+            nic_selections (list[str]): Selected NIC ID(s), BDF(s), or UUID(s):
+                    ex: ID:0  | BDF:0000:23:00.0 | UUID:ffffffff-0000-1000-0000-000000000000
+            nic_choices (dict{nic_choices}): This is a dictionary of the possible gpu_choices
+        Returns:
+            (True, list[device_handles]): Returns a list of all the nic_selections converted to
+                amdsmi device_handles
+            (False, str): Return False, and the first input that failed to be converted
+        """
+        if 'all' in nic_selections:
+            return (True, amdsmi_interface.get_nic_handles())
+
+        if isinstance(nic_selections, str):
+            nic_selections = [nic_selections]
+    
+        if nic_choices is None:
+            nic_choices = self.get_nic_choices()[0]
+
+        selected_device_handles = []
+        for nic_selection in nic_selections:
+            valid_nic_choice = False
+
+            for nic_id, nic_info in nic_choices.items():
+                bdf = nic_info['BDF']
+                uuid = nic_info['UUID']
+                device_handle = nic_info['Device Handle']
+            
+
+                # Check if passed nic is a nic ID or UUID
+                if nic_selection == nic_id or nic_selection.lower() == uuid:
+                
+                    device_type=amdsmi_interface.amdsmi_get_processor_type(device_handle)
+                
+                    selected_device_handles.append(device_handle)
+                    valid_nic_choice = True
+                    break
+                else:  # Check if nic passed is a BDF object
+                    try:
+                        if BDF(nic_selection) == BDF(bdf):
+                            selected_device_handles.append(device_handle)
+                            valid_nic_choice = True
+                            break
+                    except Exception:
+                        # Ignore exception when checking if the gpu_choice is a BDF
+                        pass
+
+            if not valid_nic_choice:
+                logging.debug(f"AMDSMIHelpers.get_device_handles_from_gpu_selections - Unable to convert {nic_selection}")
+            
+                return False, nic_selection
+            count=len(selected_device_handles)
+        
+        return True, selected_device_handles
+
+    #BRCM POC to get device handles from switch selections
+    def get_device_handles_from_switch_selections(self, switch_selections: List[str], switch_choices=None):
+
+            """Convert provided switch_selections to device_handles
+
+            Args:
+                switch_selections (list[str]): Selected switch ID(s), BDF(s), or UUID(s):
+                        ex: ID:0  | BDF:0000:23:00.0 | UUID:ffffffff-0000-1000-0000-000000000000
+                switch_choices (dict{switch_choices}): This is a dictionary of the possible gpu_choices
+            Returns:
+                (True, list[device_handles]): Returns a list of all the switch_selections converted to
+                    amdsmi device_handles
+                (False, str): Return False, and the first input that failed to be converted
+            """
+            if 'all' in switch_selections:
+                return (True, amdsmi_interface.get_switch_handles())
+
+            if isinstance(switch_selections, str):
+                switch_selections = [switch_selections]
+
+            if switch_choices is None:
+                switch_choices = self.get_switch_choices()[0]
+
+            selected_device_handles = []
+            for switch_selection in switch_selections:
+                valid_switch_choice = False
+
+                for switch_id, switch_info in switch_choices.items():
+                    bdf = switch_info['BDF']
+                    uuid = switch_info['UUID']
+                    device_handle = switch_info['Device Handle']
+        
+
+                    # Check if passed switch is a switch ID or UUID
+                    if switch_selection == switch_id or switch_selection.lower() == uuid:
+            
+                        device_type=amdsmi_interface.amdsmi_get_processor_type(device_handle)
+            
+                        selected_device_handles.append(device_handle)
+                        valid_switch_choice = True
+                        break
+                    else:  # Check if switch passed is a BDF object
+                        try:
+                            if BDF(switch_selection) == BDF(bdf):
+                                selected_device_handles.append(device_handle)
+                                valid_switch_choice = True
+                                break
+                        except Exception:
+                            # Ignore exception when checking if the gpu_choice is a BDF
+                            pass
+
+                if not valid_switch_choice:
+                    logging.debug(f"AMDSMIHelpers.get_device_handles_from_gpu_selections - Unable to convert {switch_selection}")
+        
+                    return False, switch_selection
+                count=len(selected_device_handles)
+    
+            return True, selected_device_handles    
+    
 
     def get_device_handles_from_cpu_selections(self, cpu_selections: List[str], cpu_choices=None):
         """Convert provided cpu_selections to device_handles
@@ -513,8 +732,13 @@ class AMDSMIHelpers():
         if isinstance(args.gpu, list):
             if len(args.gpu) > 1:
                 for device_handle in args.gpu:
-                    # Handle multiple_devices to print all output at once
-                    subcommand(args, multiple_devices=True, gpu=device_handle)
+                    device_type=amdsmi_interface.amdsmi_get_processor_type(device_handle)
+                    if device_type["processor_type"]=='AMDSMI_PROCESSOR_TYPE_AMD_GPU':
+                        subcommand(args, multiple_devices=True, gpu=device_handle)
+                    elif device_type["processor_type"]=='AMDSMI_PROCESSOR_TYPE_BRCM_NIC':
+                        subcommand(args, multiple_devices=True, nic=device_handle)
+                    elif device_type["processor_type"]=='AMDSMI_PROCESSOR_TYPE_BRCM_SWITCH':
+                        subcommand(args, multiple_devices=True, switch=device_handle)     
                 logger.print_output(multiple_device_enabled=True)
                 return True, args.gpu
             elif len(args.gpu) == 1:
@@ -524,6 +748,95 @@ class AMDSMIHelpers():
                 logging.debug("args.gpu has an empty list")
         else:
             return False, args.gpu
+
+
+    def handle_switchs(self, args, logger, subcommand):
+    
+        """This function will run execute the subcommands based on the number
+            of gpus passed in via args.
+        params:
+            args - argparser args to pass to subcommand
+            current_platform_args (list) - GPU supported platform arguments
+            current_platform_values (list) - GPU supported values for the arguments
+            logger (AMDSMILogger) - Logger to print out output
+            subcommand (AMDSMICommands) - Function that can handle multiple gpus
+
+        return:
+            tuple(bool, device_handle) :
+                bool - True if executed subcommand for multiple devices
+                device_handle - Return the device_handle if the list of devices is a length of 1
+            (handled_multiple_gpus, device_handle)
+
+        """
+    
+        if isinstance(args.switch, list):
+        
+            if len(args.switch) > 1:
+                for device_handle in args.switch:
+                    device_type=amdsmi_interface.amdsmi_get_processor_type(device_handle)
+                    if device_type["processor_type"]=='AMDSMI_PROCESSOR_TYPE_AMD_GPU':
+                        subcommand(args, multiple_devices=True, gpu=device_handle)
+                    elif device_type["processor_type"]=='AMDSMI_PROCESSOR_TYPE_BRCM_NIC':
+                        subcommand(args, multiple_devices=True, nic=device_handle)
+                    elif device_type["processor_type"]=='AMDSMI_PROCESSOR_TYPE_BRCM_SWITCH':
+                        subcommand(args, multiple_devices=True, switch=device_handle)      
+                
+                logger.print_output(multiple_device_enabled=True)
+                return True, args.switch
+            elif len(args.switch) == 1:
+                args.switch = args.switch[0]
+                return False, args.switch
+            else:
+                logging.debug("args.gpu has an empty list")
+        else:
+            return False, args.switch
+
+    #BRCM POC to handle nics  
+    def handle_nics(self, args, logger, subcommand):
+    
+        """This function will run execute the subcommands based on the number
+            of nics passed in via args.
+        params:
+            args - argparser args to pass to subcommand
+            current_platform_args (list) - nic supported platform arguments
+            current_platform_values (list) - nic supported values for the arguments
+            logger (AMDSMILogger) - Logger to print out output
+            subcommand (AMDSMICommands) - Function that can handle multiple nics
+
+        return:
+            tuple(bool, device_handle) :
+                bool - True if executed subcommand for multiple devices
+                device_handle - Return the device_handle if the list of devices is a length of 1
+            (handled_multiple_gpus, device_handle)
+
+        """
+    
+        if isinstance(args.nic, list):
+            
+            if len(args.nic) > 1:
+        
+                for device_handle in args.nic:
+                
+                    device_type=amdsmi_interface.amdsmi_get_processor_type(device_handle)
+                    if device_type["processor_type"]=='AMDSMI_PROCESSOR_TYPE_AMD_GPU':
+                        subcommand(args, multiple_devices=True, gpu=device_handle)
+
+                    elif device_type["processor_type"]=='AMDSMI_PROCESSOR_TYPE_BRCM_NIC':
+                    
+                        subcommand(args, multiple_devices=True, nic=device_handle)
+                    elif device_type["processor_type"]=='AMDSMI_PROCESSOR_TYPE_BRCM_SWITCH':
+                    
+                        subcommand(args, multiple_devices=True, switch=device_handle) 
+                        
+                logger.print_output(multiple_device_enabled=True)
+                return True, args.nic
+            elif len(args.nic) == 1:
+                args.nic = args.nic[0]
+                return False, args.nic
+            else:
+                logging.debug("args.gpu has an empty list")
+        else:
+            return False, args.nic
 
 
     def handle_cpus(self, args, logger, subcommand):
@@ -647,7 +960,29 @@ class AMDSMIHelpers():
         raise amdsmi_exception.AmdSmiParameterException(input_device_handle,
                                                         amdsmi_interface.amdsmi_wrapper.amdsmi_processor_handle,
                                                         "Unable to find gpu ID from device_handle")
+    def get_nic_id_from_device_handle(self, input_device_handle):
+        """Get the nic index from the device_handle.
+        get_nic_handles() returns the list of device_handles in order of nic_index
+        """
+        device_handles = amdsmi_interface.get_nic_handles()
+        for nic_index, device_handle in enumerate(device_handles):
+            if input_device_handle.value == device_handle.value:
+                return nic_index
+        raise amdsmi_exception.AmdSmiParameterException(input_device_handle,
+                                                        amdsmi_interface.amdsmi_wrapper.amdsmi_processor_handle,
+                                                        "Unable to find nic ID from device_handle")
 
+    def get_switch_id_from_device_handle(self, input_device_handle):
+        """Get the nic index from the device_handle.
+        get_nic_handles() returns the list of device_handles in order of nic_index
+        """
+        device_handles = amdsmi_interface.get_switch_handles()
+        for switch_index, device_handle in enumerate(device_handles):
+            if input_device_handle.value == device_handle.value:
+                return switch_index
+        raise amdsmi_exception.AmdSmiParameterException(input_device_handle,
+                                                        amdsmi_interface.amdsmi_wrapper.amdsmi_processor_handle,
+                                                        "Unable to find switch ID from device_handle")
 
     def get_cpu_id_from_device_handle(self, input_device_handle):
         """Get the cpu index from the device_handle.

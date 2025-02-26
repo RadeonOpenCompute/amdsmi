@@ -1487,6 +1487,8 @@ rsmi_status_t rsmi_driver_status(rsmi_driver_state_t* state);
  *  @retval ::RSMI_STATUS_SUCCESS is returned upon successful call.
  */
 rsmi_status_t rsmi_num_monitor_devices(uint32_t *num_devices);
+rsmi_status_t rsmi_num_nic_monitor_devices(uint32_t *num_devices);
+rsmi_status_t rsmi_num_switch_monitor_devices(uint32_t *num_devices);
 
 /**
  *  @brief Get the device id associated with the device with provided device
@@ -2064,6 +2066,8 @@ rsmi_dev_pci_bandwidth_get(uint32_t dv_ind, rsmi_pcie_bandwidth_t *bandwidth);
  *  @retval ::RSMI_STATUS_INVALID_ARGS the provided arguments are not valid
  */
 rsmi_status_t rsmi_dev_pci_id_get(uint32_t dv_ind, uint64_t *bdfid);
+rsmi_status_t rsmi_nic_dev_pci_id_get(uint32_t dv_ind, uint64_t *bdfid);
+rsmi_status_t rsmi_switch_dev_pci_id_get(uint32_t dv_ind, uint64_t *bdfid);
 
 /**
  *  @brief Get the NUMA node associated with a device

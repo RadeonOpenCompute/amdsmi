@@ -80,6 +80,17 @@ class AMDSMIParser(argparse.ArgumentParser):
         else:
             self.gpu_choices = {}
             self.gpu_choices_str = ""
+            
+        if self.helpers.is_amdgpu_initialized():
+            self.nic_choices, self.nic_choices_str = self.helpers.get_nic_choices()
+        else:
+            self.nic_choices = {}
+            self.nic_choices_str = ""
+        if self.helpers.is_amdgpu_initialized():
+            self.switch_choices, self.switch_choices_str = self.helpers.get_switch_choices()
+        else:
+            self.switch_choices = {}
+            self.switch_choices_str = ""       
 
         if self.helpers.is_amd_hsmp_initialized():
             self.cpu_choices, self.cpu_choices_str = self.helpers.get_cpu_choices()
@@ -348,6 +359,62 @@ class AMDSMIParser(argparse.ArgumentParser):
                                                                                   True, False, False)
 
         return _GPUSelectAction
+    
+   
+    def _nic_select(self, nic_choices):
+        
+        """ Custom argparse action to return the device handle(s) for the nics(s) selected
+            This will set the destination (args.nic) to a list of 1 or more device handles
+            If 1 or more device handles are not found then raise an ArgumentError for the first invalid nic seen
+        """
+
+        amdsmi_helpers = self.helpers
+        class _NICSelectAction(argparse.Action):
+            ouputformat=self.helpers.get_output_format()
+            # Checks the values
+            def __call__(self, parser, args, values, option_string=None):
+                if "all" in nic_choices:
+                    del nic_choices["all"]
+                status, selected_device_handles = amdsmi_helpers.get_device_handles_from_nic_selections(nic_selections=values,
+                                                                                                         nic_choices=nic_choices)
+                if status:
+                    setattr(args, self.dest, selected_device_handles)
+                else:
+                    if selected_device_handles == '':
+                        raise amdsmi_cli_exceptions.AmdSmiMissingParameterValueException("--nic", _NICSelectAction.ouputformat)
+                    else:
+                        raise amdsmi_cli_exceptions.AmdSmiDeviceNotFoundException(selected_device_handles, _NICSelectAction.ouputformat)
+                count=len(selected_device_handles)
+             
+        return _NICSelectAction
+
+   
+    def _switch_select(self, switch_choices):
+    
+        """ Custom argparse action to return the device handle(s) for the switchs(s) selected
+            This will set the destination (args.switch) to a list of 1 or more device handles
+            If 1 or more device handles are not found then raise an ArgumentError for the first invalid switch seen
+        """
+
+        amdsmi_helpers = self.helpers
+        class _switchSelectAction(argparse.Action):
+            ouputformat=self.helpers.get_output_format()
+            # Checks the values
+            def __call__(self, parser, args, values, option_string=None):
+                if "all" in switch_choices:
+                    del switch_choices["all"]
+                status, selected_device_handles = amdsmi_helpers.get_device_handles_from_switch_selections(switch_selections=values,
+                                                                                                         switch_choices=switch_choices)
+                if status:
+                    setattr(args, self.dest, selected_device_handles)
+                else:
+                    if selected_device_handles == '':
+                        raise amdsmi_cli_exceptions.AmdSmiMissingParameterValueException("--switch", _switchSelectAction.ouputformat)
+                    else:
+                        raise amdsmi_cli_exceptions.AmdSmiDeviceNotFoundException(selected_device_handles, _switchSelectAction.ouputformat)
+                count=len(selected_device_handles)
+         
+        return _switchSelectAction
 
 
     def _cpu_select(self, cpu_choices):
@@ -470,6 +537,8 @@ class AMDSMIParser(argparse.ArgumentParser):
     def _add_device_arguments(self, subcommand_parser: argparse.ArgumentParser, required=False):
         # Device arguments help text
         gpu_help = f"Select a GPU ID, BDF, or UUID from the possible choices:\n{self.gpu_choices_str}"
+        nic_help = f"Select a NIC ID, BDF, or UUID from the possible choices:\n{self.nic_choices_str}"
+        switch_help = f"Select a SWITCH ID, BDF, or UUID from the possible choices:\n{self.switch_choices_str}"
         vf_help = "Gets general information about the specified VF (timeslice, fb info, …).\
                     \nAvailable only on virtualization OSs"
         cpu_help = f"Select a CPU ID from the possible choices:\n{self.cpu_choices_str}"
@@ -482,7 +551,13 @@ class AMDSMIParser(argparse.ArgumentParser):
         if self.helpers.is_amdgpu_initialized():
             device_args.add_argument('-g', '--gpu', action=self._gpu_select(self.gpu_choices),
                                         nargs='+', help=gpu_help)
-
+        if self.helpers.is_amdgpu_initialized():
+                device_args.add_argument('-bn', '--nic', action=self._nic_select(self.nic_choices),
+                                            nargs='+', help=nic_help)
+                
+        if self.helpers.is_amdgpu_initialized():
+                device_args.add_argument('-bs', '--switch', action=self._switch_select(self.switch_choices),
+                                            nargs='+', help=switch_help)    
         if self.helpers.is_amd_hsmp_initialized():
             device_args.add_argument('-U', '--cpu', type=self._validate_cpu_core,
                                         action=self._cpu_select(self.cpu_choices),
