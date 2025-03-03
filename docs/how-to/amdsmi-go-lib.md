@@ -18,9 +18,10 @@ Refer to the [Go library API reference](../reference/amdsmi-go-api.md).
 
 ## Prerequisites
 
-To get started, make sure your environment satisfies the following prerequisites.
+Before get started, make sure your environment satisfies the following prerequisites.
+See the [requirements](#install_reqs) section for more information.
 
-1. Ensure `amdgpu` drivers are installed properly.
+1. Ensure `amdgpu` drivers are installed properly for initialization.
 
 2. Export `LD_LIBRARY_PATH` to the `amdsmi` installation directory.
 
@@ -52,9 +53,7 @@ variable to the directory containing ``librocm_smi64.so`` (usually
 
 A Go application using AMD SMI must call `goamdsmi.GO_gpu_init()` to initialize
 the AMI SMI library before all other calls. This call initializes the internal
-data structures required for subsequent AMD SMI operations. In the call, a flag
-can be passed to indicate if the application is interested in a specific device
-type.
+data structures required for subsequent AMD SMI operations.
 
 `goamdsmi.GO_gpu_shutdown()` must be the last call to properly close connection to
 driver and make sure that any resources held by AMD SMI are released.

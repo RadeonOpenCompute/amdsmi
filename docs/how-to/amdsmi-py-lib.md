@@ -9,12 +9,25 @@ myst:
 
 The AMD SMI Python interface provides a convenient way to interact with AMD
 hardware through a simple and accessible [API](../reference/amdsmi-py-api.md).
-Compatible with Python 3.6 and higher, this library requires the AMD driver to
-be loaded for initialization -- review the [prerequisites](#install_reqs).
 
 ```{seealso}
 Refer to the [Python library API reference](../reference/amdsmi-py-api.md).
 ```
+
+## Prerequisites
+
+Before get started, make sure your environment satisfies the following prerequisites.
+See the [requirements](#install_reqs) section for more information.
+
+1. Ensure `amdgpu` drivers are installed properly for initialization.
+
+2. Export `LD_LIBRARY_PATH` to the `amdsmi` installation directory.
+
+   ```bash
+   export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/opt/rocm/lib:/opt/rocm/lib64:
+   ```
+
+3. Install Python 3.6.8+.
 
 ## Get started
 

@@ -26,13 +26,29 @@ for more information.
 * [Install the AMD SMI library and CLI tool](https://rocm.docs.amd.com/projects/amdsmi/en/latest/install/install.html)
 
 ## Requirements
-The following are required to install and use the AMD SMI libraries and CLI tool.
 
-* Python 3.6.8+ (64-bit)
-  * prerequisite modules:
-    * python3-wheel
-    * python3-setuptools
-* `amdgpu` driver must be loaded for [`amdsmi_init()`](./docs/how-to/amdsmi-cpp-lib#hello-amd-smi) to work.
+The following are required to install and use the AMD SMI library through its language interfaces and CLI.
+
+* The `amdgpu` driver must be loaded for AMD SMI initialization to work.
+
+* Export `LD_LIBRARY_PATH` to the `amdsmi` installation directory.
+
+  ```bash
+  export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/opt/rocm/lib:/opt/rocm/lib64
+  ```
+
+### Python API and CLI tool prerequisites
+
+* Python version 3.6.8 or greater (64-bit)
+
+* Modules:
+  * `python3-wheel`
+
+  * `python3-setuptools`
+
+### Go API prerequisites
+
+* Go version 1.20 or greater
 
 ## Install amdgpu driver and AMD SMI with ROCm
 
