@@ -93,7 +93,7 @@ func GO_gpu_num_monitor_devices() (uint) {
 //
 //   if true == goamdsmi.GO_gpu_init() {
 //       num_gpus := int(goamdsmi.GO_gpu_num_monitor_devices())
-//       for i :== 0; i < num_gpus; i++ {
+//       for i := 0; i < num_gpus; i++ {
 //           goamdsmi.GO_gpu_dev_name_get(i)
 //       }
 //   }
@@ -114,7 +114,7 @@ func GO_gpu_dev_name_get(i int) (*C.char) {
 //
 //   if true == goamdsmi.GO_gpu_init() {
 //       num_gpus := int(goamdsmi.GO_gpu_num_monitor_devices())
-//       for i :== 0; i < num_gpus; i++ {
+//       for i := 0; i < num_gpus; i++ {
 //           value16 := goamdsmi.GO_gpu_dev_id_get(i)
 //       }
 //   }
