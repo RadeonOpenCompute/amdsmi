@@ -100,6 +100,17 @@ Refer to the [user guide](https://rocm.docs.amd.com/projects/amdsmi/en/latest/ho
 detailed [Python API reference](https://rocm.docs.amd.com/projects/amdsmi/en/latest/reference/amdsmi-py-api.html) in the
 ROCm documentation portal.
 
+### Go library
+
+The AMD SMI Go interface provides a simple
+[API](https://rocm.docs.amd.com/projects/amdsmi/en/latest/reference/amdsmi-go-lib.html)
+for AMD hardware management. It streamlines hardware monitoring and control
+while leveraging Golang's features.
+
+Refer to the [user guide](https://rocm.docs.amd.com/projects/amdsmi/en/latest/how-to/amdsmi-go-lib.html) and the
+[Go API reference](https://rocm.docs.amd.com/projects/amdsmi/en/latest/reference/amdsmi-go-api.html) in the
+ROCm documentation portal.
+
 ### CLI tool
 
 A versatile command line tool for managing and monitoring AMD hardware. You can use `amd-smi` for:
