@@ -968,6 +968,34 @@ class TestAmdSmiPythonInterface(unittest.TestCase):
         print("\n========> test_walkthrough end <========")
         print("#######################################################################\n")
 
+    def test_gpu_cache_info(self):
+        print("\n\n#######################################################################")
+        print("========> test_cache start <========\n")
+        self.setUp()
+        processors = amdsmi.amdsmi_get_processor_handles()
+        self.assertGreaterEqual(len(processors), 1)
+        self.assertLessEqual(len(processors), 32)
+        for i in range(0, len(processors)):
+            bdf = amdsmi.amdsmi_get_gpu_device_bdf(processors[i])
+            print("\n\n###Test Processor {}, bdf: {}".format(i, bdf))
+            print("\n###Test amdsmi_get_gpu_cache_info \n")
+            cache_usage_list = amdsmi.amdsmi_get_gpu_cache_info(processors[i])["cache"]
+            for cache_usage in cache_usage_list:
+                print("  cache_usage['cache_properties'] is: {}".format(
+                    cache_usage['cache_properties']))
+                print("  cache_usage['cache_size'] is: {}".format(
+                    cache_usage['cache_size']))
+                print("  cache_usage['cache_level'] is: {}".format(
+                    cache_usage['cache_level']))
+                print("  cache_usage['max_num_cu_shared'] is: {}".format(
+                    cache_usage['max_num_cu_shared']))
+                print("  cache_usage['num_cache_instance'] is: {}".format(
+                    cache_usage['num_cache_instance']))
+        print()
+        print("\n========> test_cache end <========")
+        print("#######################################################################\n")
+        self.tearDown()
+
     # Unstable on workstation cards
     # @handle_exceptions
     # def test_walkthrough_multiprocess(self):
